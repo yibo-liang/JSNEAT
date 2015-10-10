@@ -1,88 +1,132 @@
 <!DOCTYPE html>
-
-<html>
+<html lang="en">
     <head>
-        <meta charset="UTF-8">
-        <title></title> 
-        <script type="text/javascript" src="JSNEAT/JSNEAT.js"></script>
+        <meta charset="utf-8">
+        <title>D3: Drawing divs with data</title>
 
-        <script type="text/javascript" src="JSNEAT/box2dweb.js"></script>
+        <script src="http://d3js.org/d3.v3.min.js"></script>
 
-        <script type="text/javascript" src="JSNEAT/core.js"></script>
+        <script type="text/javascript" src="debug.js"></script>.
+        <script type="text/javascript" src="JSNEAT.js"></script>
+        <script type="text/javascript" src="core.js"></script>
+        <script type="text/javascript" src="graphic_render.js"></script>
+        <script type="text/javascript" src="controller.js"></script>
+        <style type="text/css">
+
+            div.fullDiv {
+                height: 100%;
+                width: 100%;
+                left: 0;
+                top: 0;
+                overflow: hidden;
+                position: fixed;
+                background-color: black;
+                z-index: 0;
+            }
+
+            div.cell {
+                position: absolute;
+                background-color: red;
+                border-radius: 50%;
+                border-top: 5px solid white;
+                border-left: 3.5px solid transparent;
+                border-right: 3.5px solid transparent;
+
+
+            }
+
+            div.fps{
+                left: 0;
+                top: 0;
+                position: fixed;
+                background-color: white;
+                z-index: 4;
+            }
+
+            div.canvas_container{
+                left:0px;
+                top:0;
+                position: fixed;
+                background-color: black;
+                width: 1400px;
+                height: 800px
+            }
+
+            div.panel{
+                left:1400px;
+                top:0px;
+                position: fixed;
+            }
+
+            div.control{
+                top: 800px;
+                position: fixed;
+            }
+
+        </style>
     </head>
     <body>
-        <script>
-            initialisePool(2, 1, 20);
+        <div class="fps" id="fps"></div>
+        <div class="canvas_container" id="canvas_container"></div>
+        <div class="control"><button type="button" onclick="speedToggle();">speed mode toggle</button></div>
+        <script type="text/javascript">
 
-            function xor(a, b) {
-                var l1;
-                var l2;
-                if (a === 0) {
-                    l1 = false;
-                } else {
-                    l1 = true;
-                }
 
-                if (b === 0) {
-                    l2 = false;
-                } else {
-                    l2 = true;
-                }
-                return (l1 || l2) && !(l1 && l2);
+            initialise("canvas_container");
+            var info = new Info(0, cellpopulation, foodamount);
+            var pa = d3.select("body").append("div");
+            pa.classed("panel", true);
+            panel = d3.select("body").select(".panel").selectAll("p").data([info]);
+            panel.enter().append("p").text(function (d) {
+                return  "gen:" + d.gen
+                        + ", food n=" + d.foodnum
+                        + ", cell n=" + d.cellnum;
+            });
+
+            var cells = createCells(cellpopulation);
+            var genomes = initialisePool(cellDefault.inputNum, cellDefault.outputNum, cellpopulation);
+            for (var i = 0; i < cellpopulation; i++) {
+                cells[i].genome = genomes[i];
             }
-            var inputvec = [[0, 0], [0, 1], [1, 0], [1, 1]];
-            var done = false;
-            var resultGenome;
-            var genc = 0;
-            //die();
-            do {
-                //for each species
-                for (var i = 0; i < pool.species.length; i++) {
-                    var species = pool.species[i];
 
-                    //for each genome in this species
-                    for (var j = 0; j < species.genomes.length; j++) {
-                        var genome = species.genomes[j];
-                        generateNeuroNetwork(genome);
+            initFoods();
 
-                        //for each inputvec
-                        var c = 0;
-                        for (var k = 0; k < inputvec.length; k++) {
-                            //console.log("input=", inputvec[k]);
-                            var output = evaluateNeuroNetwork(genome.network, inputvec[k]);
-
-                            var answer = output[0];
+            //console.log(cells);
+            var detachedContainer = document.createElement("container");
+            var dataContainer = d3.select(detachedContainer);
 
 
-                            var correctAnswer = xor(inputvec[k][0], inputvec[k][1]);
-                            //console.log("output=", answer, "correct=", correctAnswer);
-                            if (answer === correctAnswer) {
-                                c++;
-                            }
-                        }
-                        genome.fitness = c / 4;
-                        if (genome.fitness > pool.maxFitness) {
-                            pool.maxFitness = genome.fitness;
-                            console.log("new max fitness = " + pool.maxFitness);
-                        }
-                        if (c === 4) {
-                            done = true;
-                            resultGenome = genome;
-                            break;
-                        }
 
 
-                    }
-                    if (done === true) {
-                        break;
-                    }
-                    species.age++;
+
+            for (var i = 0; i < cellpopulation; i++) {
+                cellgrid.updateObjPos(cells[i]);
+            }
+
+            var fstart = new Date().getTime();
+            var framecount = 0;
+            var current = 0;
+
+
+            d3.timer(function () {
+                stepframe();
+
+
+                framecount++;
+                if (framecount % 18 === 0) {
+                    var fend = new Date().getTime();
+                    var dt = (fend - fstart) / 1000;
+                    var df = framecount - current;
+                    var fps = df / dt;
+                    document.getElementById("fps").innerHTML = "fps:" + Math.floor(fps);
+                    current = framecount;
+                    fstart = fend;
                 }
-                newGeneration();
-                genc++;
-                console.log("new gen g", pool);
-            } while (done !== true && genc < 30);
-            console.log(resultGenome);
+            });
+
         </script>
+
+
+
     </body>
 </html>
