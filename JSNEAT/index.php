@@ -48,18 +48,19 @@
                 top:0;
                 position: fixed;
                 background-color: black;
-                width: 1400px;
-                height: 800px
+                width: 1024px;
+                height: 768px
             }
 
             div.panel{
-                left:1400px;
+                left:1024px;
                 top:0px;
                 position: fixed;
             }
 
             div.control{
-                top: 800px;
+                top: 40px;
+                left:1024px;
                 position: fixed;
             }
 

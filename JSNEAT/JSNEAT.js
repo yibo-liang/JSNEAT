@@ -6,7 +6,7 @@ var outputs;
 var pool;
 var innovation = 0;
 var Population;
-var DeltaDisjoint = 1.0;
+var DeltaDisjoint = 1;
 var DeltaWeights = 0.4;
 var DeltaThreshold = 0.8;
 var StaleSpecies = 40;
