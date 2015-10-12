@@ -83,7 +83,7 @@ var poolWidth = 1024;
 var poolHeight = 768;
 
 var cellpopulation = 50;
-var foodamount = 50;
+var foodamount = 30;
 
 var hiddenLayerNum = 1;
 var cellCount = 0;
@@ -92,19 +92,19 @@ var foodCount = 0;
 var minRadius = 3;
 var maxRadius = 6;
 
+var maxSpeed = 5;
+var minSpeed = 0;
+
 var cellgrid;
 var foodgrid;
 
 
 var reposition = function (cell) {
-    var speed = cell.speed;
-    if (cell.is_running) {
-        speed = speed * 2.0;
-        //cell.stamina -= 0.2;  // forward requires stamina    
-        cell.is_running = false;
-    } else {
-        //cell.stamina -= 0.1;
+    if (cell.stamina <= 0) {
+        return;
     }
+    var speed = cell.speed;
+    cell.stamina -= Math.pow(speed * 2, 1.3) * 0.01;
     var newx = cell.x + Math.cos(cell.r) * cell.speed;
     var newy = cell.y + Math.sin(cell.r) * cell.speed;
     var on_h_edge = false;
@@ -130,9 +130,11 @@ var reposition = function (cell) {
 
     if (on_h_edge === true) {
         cell.y = newy;
+        cell.speed = 0;
         return;
     } else if (on_v_edge === true) {
         cell.x = newx;
+        cell.speed = 0;
         return;
     } else {
         cell.x = newx;
@@ -142,21 +144,27 @@ var reposition = function (cell) {
 
 };
 
-var moveForward = function (cell) {
-    cell.is_moving = true;
+var accelerate = function (cell) {
+    cell.speed += 0.2;
+    if (cell.speed >= maxSpeed) {
+        cell.speed = maxSpeed;
+    }
 };
 
-var speedup = function (cell) {
-    cell.is_running = true;
+var decelerate = function (cell) {
+    cell.speed -= 0.2;
+    if (cell.speed <= minSpeed) {
+        cell.speed = minSpeed;
+    }
 };
 
 var turnLeft = function (cell) {
-    cell.r = (cell.r - 2 * Math.PI / 48) % (Math.PI * 2); //turn left for 360/24 degree
+    cell.r = (cell.r - 2 * Math.PI / 12 / (cell.speed + 0.01)) % (Math.PI * 2); //turn left for 360/24 degree
 
 };
 
 var turnRight = function (cell) {
-    cell.r = (cell.r + 2 * Math.PI / 48) % (Math.PI * 2); //turn left for 360/24 degree
+    cell.r = (cell.r + 2 * Math.PI / 12 / (cell.speed + 0.01)) % (Math.PI * 2); //turn left for 360/24 degree
 
 };
 
@@ -193,7 +201,7 @@ var distance = function (x1, y1, x2, y2) {
 var attack = function (cell) {
 
 
-    cell.stamina -= 5;
+    cell.stamina -= 3;
     var neignbors = getNeighborObjs(cell, cellgrid);
 
 
@@ -213,15 +221,17 @@ var attack = function (cell) {
 };
 
 var cellDefault = {
-    inputNum: 5,
-    outputNum: 4,
+    inputNum: 7,
+    outputNum: 6,
     //list of action functoins
     //3 move function allows the cell to move at 3 different speed
     actions: [
-        moveForward,
-        speedup,
+        accelerate,
+        decelerate,
         turnLeft,
-        turnRight
+        turnRight,
+        attack,
+        defend
 
                 //defend,
                 // attack
@@ -276,7 +286,7 @@ function Cell(genome, x, y, r) {
     //id is used to identify cell.
     this.id = cellCount++;
     this.color = [255, 255, 255];
-    this.radius = 5;
+    this.radius = 8;
     this.sensor_dist = 100;
     if (typeof x === "undefined" || typeof y === "undefined" || typeof r === "undefined") {
         this.x = Math.random() * poolWidth;
@@ -290,14 +300,15 @@ function Cell(genome, x, y, r) {
     //coordinates of this cell in last frame
     this.lastx = this.x;
     this.lasty = this.y;
-    this.speed = 1.5;
+    this.speed = 0;
 
-    this.is_moving = false;
+    //this.is_moving = false;
 
     this.is_attacked = false;
     this.attackers = [];
     this.is_defending = false;
-    this.is_running = false;
+
+    //this.is_running = false;
 
     this.is_dead = false;
 
@@ -313,7 +324,7 @@ function Cell(genome, x, y, r) {
     this.stamina = 800;
     this.life = 100;
     this.fitness = 0;
-       
+
 
 }
 Cell.prototype.init = function () {
@@ -422,7 +433,7 @@ Cell.prototype.sense = function () {
 
 
 
-    var result = rv1.concat(rv2).concat([wallSensor]);//.concat(wallDist);
+    var result = rv1.concat(rv2).concat([this.speed, this.stamina, wallSensor]);//.concat(wallDist);
     if (this.id === debugid) {
         if (this.is_dead == false) {
             //if (framecount % 30 === 0)

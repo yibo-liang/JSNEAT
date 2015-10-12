@@ -60,11 +60,11 @@ function cellUpdate(cellData) {
     for (var i = 0; i < cellData.length; i++) {
         var cell = cellData[i];
         //console.log(cell);
-        if (cell.is_moving) {
+        if (true) {
             cell.lastx = cell.x;
             cell.lasty = cell.y;
             reposition(cell);
-            cell.is_moving = false;
+            //cell.is_moving = false;
 
         }
         if (cell.is_attacked) {
@@ -98,7 +98,7 @@ function cellUpdate(cellData) {
 
         cell.life -= 0.08; // each frame the cell loses 0.1 life, out of 100
         if (cell.stamina <= 0) {
-            cell.life -= 0.12;
+            //cell.life -= 0.12;
         }
         if (cell.life <= 0) {
             cell.is_dead = true;

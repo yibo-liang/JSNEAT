@@ -6,16 +6,18 @@ var outputs;
 var pool;
 var innovation = 0;
 var Population;
-var DeltaDisjoint = 1;
+var DeltaDisjoint = 1.5;
 var DeltaWeights = 0.4;
-var DeltaThreshold = 0.8;
-var StaleSpecies = 40;
-var dropOffAge = 40;
+var DeltaThreshold = 1.3;
+var StaleSpecies = 30;
+var dropOffAge = 30;
 var ageSignificance = 1.2;
 
 var MutateConnectionsChance = 0.25;
 var PerturbChance = 0.90;
 var CrossoverChance = 0.75;
+
+var AdoptionChanche = 0.01;
 var LinkMutationChance = 2;
 var NodeMutationChance = 0.5;
 var BiasMutationChance = 0.30;
@@ -35,22 +37,27 @@ function newInnovation() {
 var Pool = function () {
     this.species = [];
     this.generation = 0;
+    this.speciesCount = 0;
     this.innovation = outputs;
     this.currentSpecies = 1;
     this.currentGenome = 1;
     this.currentFrame = 0;
     this.maxFitness = 0;
+    this.isPruning = false;
 };
 //pool = new Pool();
 
 var Species = function () {
+    this.id = pool.speciesCount++;
     this.topFitness = 0;
+    this.topAverageFitness = 0;
     this.staleness = 0;
     this.genomes = [];
     this.averageFitness = 0;
     this.age = 0;
 };
 var Genome = function () {
+
     this.genes = [];
     this.fitness = 0;
     this.adJustedFitness = 0;
@@ -64,6 +71,7 @@ var Genome = function () {
     this.mutationRates["node"] = NodeMutationChance;
     this.mutationRates["enable"] = EnableMutationChance;
     this.mutationRates["disable"] = DisableMutationChance;
+    this.mutationRates["adopt"] = AdoptionChanche;
     this.mutationRates["step"] = StepSize;
 };
 Genome.prototype.copy = function () {
@@ -79,6 +87,8 @@ Genome.prototype.copy = function () {
     copy.mutationRates["node"] = this.mutationRates["node"];
     copy.mutationRates["enable"] = this.mutationRates["enable"];
     copy.mutationRates["disable"] = this.mutationRates["disable"];
+    copy.mutationRates["adopt"] = this.mutationRates["AdoptionChanche"];
+
     copy.mutationRates["step"] = this.mutationRates["step"];
     return copy;
 };
@@ -110,7 +120,7 @@ function basicGenome() {
             newGene.out = MaxNodes + j;
             newGene.enable = true;
             newGene.innovation = basic_innovatation++;
-            newGene.weight = Math.random() * 4 - 2;
+            newGene.weight = 0; //Math.random() * 4 - 2;
             //genes.push(newGene);
         }
     }
@@ -431,7 +441,7 @@ function mutate(genome) {
 
 
     var p = genome.mutationRates["node"];
-    while (p > 0) {
+    while (p > 0 && pool.isPruning === false) {
         if (Math.random() < p) {
             nodeMutation(genome);
         }
@@ -439,14 +449,14 @@ function mutate(genome) {
     }
 
     var p = genome.mutationRates["enable"];
-    while (p > 0) {
+    while (p > 0 && pool.isPruning === false) {
         if (Math.random() < p) {
             enableDisableMutate(genome, true);
         }
         p -= 1;
     }
     var p = genome.mutationRates["disable"];
-    while (p > 0) {
+    while (p > 0 && pool.isPruning === false) {
         if (Math.random() < p) {
             enableDisableMutate(genome, false);
         }
@@ -457,6 +467,7 @@ function mutate(genome) {
 function disjoint(genes1, genes2) {
     var l1 = {};
     var l2 = {};
+
     for (var i = 0; i < genes1.length; i++) {
         var gene = genes1[i];
         l1[gene.innovation] = true;
@@ -550,8 +561,9 @@ function calculateAverageFitness(species) {
     for (var g = 0; g < species.genomes.length; g++) {
         var genome = species.genomes[g];
         genome.adJustedFitness = a * genome.fitness / Math.log(10 * species.genomes.length);
-        if (genome.adJustedFitness > pool.maxFitness) {
-            pool.maxFitness = genome.adJustedFitness;
+        //console.log("adjfit:",genome.adJustedFitness);
+        if (genome.fitness > pool.maxFitness) {
+            pool.maxFitness = genome.fitness;
         }
         total = total + genome.adJustedFitness;//genome.globalRank;
     }
@@ -597,7 +609,7 @@ function cullSpecies(cutToOne) {
 
 
 function tourment(species) {
-    var n = 3;
+    var n = 2;
     var t = [];
     //console.log("test s=", species);
     for (var i = 0; i < n; i++) {
@@ -618,21 +630,35 @@ function tourment(species) {
 
 }
 
-function breedChild(species) {
+function breedChild(species, potentialAdoptSpecies) {
     var child;
     var g1;
     var g2;
     var g;
     //console.log("breeding:", species);
-    if (Math.random() < CrossoverChance) {
-        g1 = tourment(species);//species.genomes[getRandomIntInclusive(0, species.genomes.length - 1)];
-        g2 = tourment(species);//species.genomes[getRandomIntInclusive(0, species.genomes.length - 1)];
-        //console.log("breed from g1 fit=", g1.fitness, " and g2 fit=", g2.fitness);
-        child = crossover(g1, g2);
+    if (Math.random() < CrossoverChance && pool.isPruning === false) {
+        if (Math.random() < AdoptionChanche) {
+            g1 = tourment(species);//species.genomes[getRandomIntInclusive(0, species.genomes.length - 1)];
+            g2 = tourment(potentialAdoptSpecies);//species.genomes[getRandomIntInclusive(0, species.genomes.length - 1)];
+            //console.log("breed from g1 fit=", g1.fitness, " and g2 fit=", g2.fitness);
+            child = crossover(g1, g2);
+        } else {
+            g1 = tourment(species);//species.genomes[getRandomIntInclusive(0, species.genomes.length - 1)];
+            g2 = tourment(species);//species.genomes[getRandomIntInclusive(0, species.genomes.length - 1)];
+            //console.log("breed from g1 fit=", g1.fitness, " and g2 fit=", g2.fitness);
+            child = crossover(g1, g2);
+        }
+
     } else {
-        g = tourment(species);//species.genomes[getRandomIntInclusive(0, species.genomes.length - 1)];
-        //console.log("breed from g fit=", g.fitness);
-        child = g.copy();
+        if (Math.random() < AdoptionChanche) {
+            g = tourment(potentialAdoptSpecies);//species.genomes[getRandomIntInclusive(0, species.genomes.length - 1)];
+            //console.log("breed from g fit=", g.fitness);
+            child = g.copy();
+        } else {
+            g = tourment(species);//species.genomes[getRandomIntInclusive(0, species.genomes.length - 1)];
+            //console.log("breed from g fit=", g.fitness);
+            child = g.copy();
+        }
     }
 
     mutate(child);
@@ -675,6 +701,9 @@ function removeStaleSpecies() {
         if (species.genomes[0].fitness > species.topFitness) {
             species.topFitness = species.genomes[0].fitness;
             species.staleness = 0;
+        } else if (species.averageFitness > species.topAverageFitness) {
+            species.topAverageFitness = species.averageFitness;
+            species.staleness = 0;
         } else {
             species.staleness++;
         }
@@ -683,14 +712,7 @@ function removeStaleSpecies() {
 
         }
     }
-    var str = "surv=[";
-    for (var i = 0; i < survived.length; i++) {
-        str += survived[i].genomes.length;
-        if (i < survived.length - 1) {
-            str += ",";
-        }
-    }
-    console.log(str + "], n=" + survived.length);
+
     pool.species = survived;
 }
 
@@ -701,8 +723,8 @@ function removeWeakSpecies() {
     for (var i = 0; i < pool.species.length; i++) {
         var species = pool.species[i];
         var br = species.averageFitness / sum * Population;
-        var breed = Math.floor(br);
-        //console.log("removeWeakSp, breed=", breed, ", br=", br);
+        var breed = Math.floor(br + 0.01);
+        console.log("removeWeakSp, breed=", breed, ", br=", br);
         if (breed >= 1) {
             survided.push(species);
         }
@@ -739,7 +761,8 @@ function newGeneration() {
         var species = pool.species[i];
         calculateAverageFitness(species);
     }
-    removeStaleSpecies();
+    if (pool.species.length >= 4)
+        removeStaleSpecies();
 
     //rankGlobally();
     //rankGlobally();
@@ -750,6 +773,21 @@ function newGeneration() {
     }
 
     removeWeakSpecies();
+
+    var survived = pool.species;
+    var str = "surv=[";
+    for (var i = 0; i < survived.length; i++) {
+        str += "(id=" + survived[i].id
+                + ", n=" + survived[i].genomes.length
+                + ", af=" + survived[i].averageFitness
+                + ", taf" + survived[i].topAverageFitness
+                + ", tf=" + survived[i].topFitness + ")";
+        if (i < survived.length - 1) {
+            str += ", \n";
+        }
+    }
+    console.log(str + "], n=" + survived.length);
+
     var sum = totalAverageFitness();
     var children = [];
 
@@ -757,10 +795,12 @@ function newGeneration() {
         var species = pool.species[i];
         //console.log("t2 s=", species);
         species.age++;
-        var breed = Math.floor(species.averageFitness / (sum) * (Population));
+        var breed = Math.floor(species.averageFitness / (sum) * (Population)) - species.genomes.length;
         //console.log(i, " breed=" + breed);
         for (var j = 0; j < breed; j++) {
-            children.push(breedChild(species));
+            var randomSpecies = pool.species[getRandomIntInclusive(0, pool.species.length - 1)];
+
+            children.push(breedChild(species, randomSpecies));
         }
 
     }
@@ -772,8 +812,10 @@ function newGeneration() {
     while (children.length + pool.species.length < Population) {
         var ri = getRandomIntInclusive(0, pool.species.length - 1);
         var species = pool.species[ri];
+
+        var randomSpecies = pool.species[getRandomIntInclusive(0, pool.species.length - 1)];
         //console.log("ri=", ri, "species=", species)
-        var child = breedChild(species);
+        var child = breedChild(species, randomSpecies);
         children.push(child);
         //addToSpecies(child);
     }

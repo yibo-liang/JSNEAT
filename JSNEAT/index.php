@@ -2,7 +2,7 @@
 <html lang="en">
     <head>
         <meta charset="utf-8">
-        <title>D3: Drawing divs with data</title>
+        <title>JSNEAT DEMO</title>
 
         <script src="http://d3js.org/d3.v3.min.js"></script>
 
