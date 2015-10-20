@@ -83,7 +83,7 @@ var poolWidth = 1024;
 var poolHeight = 768;
 
 var cellpopulation = 50;
-var foodamount = 30;
+var foodamount = 50;
 
 var hiddenLayerNum = 1;
 var cellCount = 0;
@@ -92,7 +92,7 @@ var foodCount = 0;
 var minRadius = 3;
 var maxRadius = 6;
 
-var maxSpeed = 5;
+var maxSpeed = 3.5;
 var minSpeed = 0;
 
 var cellgrid;
@@ -201,7 +201,7 @@ var distance = function (x1, y1, x2, y2) {
 var attack = function (cell) {
 
 
-    cell.stamina -= 3;
+    cell.stamina -= 1;
     var neignbors = getNeighborObjs(cell, cellgrid);
 
 

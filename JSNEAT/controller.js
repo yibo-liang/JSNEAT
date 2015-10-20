@@ -175,7 +175,7 @@ function doFrame() {
 
         newGeneration();
 
-        console.log("Top Fitness=" + pool.maxFitness);
+        console.log("Top Fitness=" + pool.maxFitness, "staleness=" + pool.staleness);
 
         cells = [];
         console.log(pool);

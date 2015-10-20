@@ -6,21 +6,25 @@ var outputs;
 var pool;
 var innovation = 0;
 var Population;
-var DeltaDisjoint = 1.5;
+var DeltaDisjoint = 2;
 var DeltaWeights = 0.4;
-var DeltaThreshold = 1.3;
-var StaleSpecies = 30;
-var dropOffAge = 30;
+var DeltaThreshold = 2;
+var StaleSpecies = 20;
+var dropOffAge = 20;
 var ageSignificance = 1.2;
 
 var MutateConnectionsChance = 0.25;
 var PerturbChance = 0.90;
 var CrossoverChance = 0.75;
 
-var AdoptionChanche = 0.01;
+var AdoptionChanche = 0.1;
 var LinkMutationChance = 2;
 var NodeMutationChance = 0.5;
 var BiasMutationChance = 0.30;
+
+var PruningLinkChance = 0.01;
+var PruningNodeChance = 0.02;
+
 var StepSize = 0.1;
 var DisableMutationChance = 0.4;
 var EnableMutationChance = 0.2;
@@ -44,6 +48,9 @@ var Pool = function () {
     this.currentFrame = 0;
     this.maxFitness = 0;
     this.isPruning = false;
+    this.staleness = 0;
+    this.complexity = 0;
+    this.minComplexity = 0;
 };
 //pool = new Pool();
 
@@ -124,7 +131,7 @@ function basicGenome() {
             //genes.push(newGene);
         }
     }
-
+    //innovation = basic_innovatation;
     return result;
 }
 ;
@@ -132,6 +139,7 @@ function basicGenome() {
 var neuron_count = 0;
 var Neuron = function () {
     this.incomingLinks = [];
+    this.outcomingLinks = [];
     this.v = 0;
     this.id = neuron_count++;
 };
@@ -161,12 +169,21 @@ function generateNeuroNetwork(genome) {
             if (typeof network.neurons[gene.out] === "undefined") {
                 network.neurons[gene.out] = new Neuron();
             }
-            var neuron = network.neurons[gene.out];
+            var neuron_i = gene.out;
+            var neuron = network.neurons[neuron_i];
             //console.log(network);
             neuron.incomingLinks.push(gene);
             if (typeof network.neurons[gene.in] === "undefined") {
                 network.neurons[gene.in] = new Neuron();
             }
+
+            for (var k = 0; k < genome.genes.length; k++) {
+                var genek = genome.genes[k];
+                if (genek.in === neuron_i) {
+                    neuron.outcomingLinks.push(genek);
+                }
+            }
+
         }
 
     }
@@ -405,7 +422,137 @@ function enableDisableMutate(genome, enable) {
     }
 
     var gene = candidates[getRandomIntInclusive(0, candidates.length - 1)];
-    gene.enable = true;
+    gene.enable = enable;
+}
+
+function deleteOneLink(genome, gene) {
+    var len1 = genome.genes.length;
+    for (var i = 0; i < genome.genes.length; i++) {
+        var g = genome.genes[i];
+        if (gene.in === g.in && g.out === gene.out)
+        {
+
+            var deleted = genome.genes.splice(i, 1);
+            var len2 = genome.genes.length;
+            console.log("delete link", gene.in, gene.out, "lens=", len1, len2);
+            return;
+        }
+    }
+}
+
+function deleteDisabledLinkMutate(genome) {
+
+    var candidates = [];
+    for (var i = 0; i < genome.genes.length; i++) {
+        var g = genome.genes[i];
+
+        candidates.push(g);
+
+    }
+
+    if (candidates.length === 0)
+        return;
+
+    var i = getRandomIntInclusive(0, candidates.length - 1);
+    console.log("link found..");
+    deleteOneLink(genome, candidates[i]);
+    generateNeuroNetwork(genome);
+
+
+}
+
+function deleteNodeMutate(genome) {
+    //only delete node with only income or outcome
+    //or delete node with one outcome and income
+    generateNeuroNetwork(genome);
+    var network = genome.network;
+    var candidates = [];
+    for (var c in network.neurons) {
+        if (network.neurons.hasOwnProperty(c)) {
+
+            var neuron = network.neurons[c];
+            if (neuron.outcomingLinks.length <= 1 || neuron.incomingLinks.length <= 1) {
+                if (+c > inputs && +c < MaxNodes) {
+                    //console.log("candidate node id=" + c);
+                    candidates.push(neuron);
+                }
+            }
+
+        }
+    }
+
+    if (candidates.length === 0) {
+        return;
+    }
+
+    var i = getRandomIntInclusive(0, candidates.length - 1);
+    var chosen = candidates[i];
+    if (typeof chosen === "undefined") {
+        console.log("error chosen", i, candidates, network, genome);
+    }
+    console.log("chosen to delete node=", chosen);
+    if (chosen.outcomingLinks.length === 0) {
+        //if this node does not have out come link
+        for (var i = 0; i < chosen.incomingLinks.length; i++) {
+
+            deleteOneLink(genome, chosen.incomingLinks[i]);
+        }
+    } else if (chosen.incomingLinks.length === 0) {
+        for (var i = 0; i < chosen.outcomingLinks.length; i++) {
+
+            deleteOneLink(genome, chosen.outcomingLinks[i]);
+        }
+    } else if (chosen.outcomingLinks.length === 1) {
+        var out = chosen.outcomingLinks[0].out;
+        deleteOneLink(genome, chosen.outcomingLinks[0]);
+        for (var i = 0; i < chosen.incomingLinks.length; i++) {
+            var link = chosen.incomingLinks[i];
+            var old_out = link.out;
+            link.out = out;
+
+            console.log("pass link", link.in, old_out, "to", link.in, link.out);
+
+        }
+    } else if (chosen.incomingLinks.length === 1) {
+        var inl = chosen.incomingLinks[0].in;
+        deleteOneLink(genome, chosen.incomingLinks[0]);
+        for (var i = 0; i < chosen.outcomingLinks.length; i++) {
+            var link = chosen.outcomingLinks[i];
+            var old_in = link.in;
+            link.in = inl;
+
+            console.log("pass link", old_in, link.out, "to", link.in, link.out);
+
+        }
+    }
+    generateNeuroNetwork(genome);
+
+}
+
+function totalComplexity() {
+    var sum = 0;
+    var population = 0;
+    for (var i = 0; i < pool.species.length; i++) {
+        var species = pool.species[i];
+        for (var j = 0; j < species.genomes.length; j++) {
+            population++;
+            generateNeuroNetwork(species.genomes[j]);
+
+            var network = species.genomes[j].network;
+            //console.log(network);
+            for (var ni in network.neurons) {
+                if (network.neurons.hasOwnProperty(ni)) {
+                    sum++;
+                    for (var l = 0; l < network.neurons[ni].incomingLinks.length; l++) {
+                        sum++;
+                    }
+                }
+            }
+        }
+    }
+    var result = sum / population;
+    console.log("complexity", sum, population, result);
+    return result;
 }
 
 
@@ -424,7 +571,7 @@ function mutate(genome) {
     }
 
     var p = genome.mutationRates["link"];
-    while (p > 0) {
+    while (p > 0 && pool.isPruning === false) {
         if (Math.random() < p) {
             linkMutation(genome, false);
         }
@@ -432,13 +579,12 @@ function mutate(genome) {
     }
 
     var p = genome.mutationRates["bias"];
-    while (p > 0) {
+    while (p > 0 && pool.isPruning === false) {
         if (Math.random() < p) {
             linkMutation(genome, true);
         }
         p -= 1;
     }
-
 
     var p = genome.mutationRates["node"];
     while (p > 0 && pool.isPruning === false) {
@@ -456,9 +602,26 @@ function mutate(genome) {
         p -= 1;
     }
     var p = genome.mutationRates["disable"];
-    while (p > 0 && pool.isPruning === false) {
+    while (p > 0) {
         if (Math.random() < p) {
             enableDisableMutate(genome, false);
+        }
+        p -= 1;
+    }
+
+    var p = PruningLinkChance;
+    while (p > 0 && pool.isPruning === true) {
+        if (Math.random() < p) {
+            deleteDisabledLinkMutate(genome);
+        }
+        p -= 1;
+    }
+
+
+    var p = PruningNodeChance;
+    while (p > 0 && pool.isPruning === true) {
+        if (Math.random() < p) {
+            deleteNodeMutate(genome);
         }
         p -= 1;
     }
@@ -564,6 +727,7 @@ function calculateAverageFitness(species) {
         //console.log("adjfit:",genome.adJustedFitness);
         if (genome.fitness > pool.maxFitness) {
             pool.maxFitness = genome.fitness;
+            pool.staleness = 0;
         }
         total = total + genome.adJustedFitness;//genome.globalRank;
     }
@@ -724,7 +888,7 @@ function removeWeakSpecies() {
         var species = pool.species[i];
         var br = species.averageFitness / sum * Population;
         var breed = Math.floor(br + 0.01);
-        console.log("removeWeakSp, breed=", breed, ", br=", br);
+        //console.log("removeWeakSp, breed=", breed, ", br=", br);
         if (breed >= 1) {
             survided.push(species);
         }
@@ -754,8 +918,31 @@ function addToSpecies(child) {
 }
 
 function newGeneration() {
+
+    var usePruning = false;
     console.log();
+    pool.staleness++;
+    var newComplexity = totalComplexity();
+    if (newComplexity < pool.minComplexity && pool.isPruning === true) {
+        pool.staleness = 0;
+        pool.minComplexity = newComplexity;
+    }
+    pool.complexity = newComplexity;
+
+    if (pool.staleness > 15 && pool.isPruning === false && usePruning === true) {
+        if (pool.maxFitness > 3500) {
+            pool.isPruning = true;
+            pool.staleness = 0;
+            pool.minComplexity = 99999;
+        }
+    } else if (pool.staleness > 10 && pool.isPruning === true && usePruning === true) {
+        pool.isPruning = false;
+        pool.staleness = 0;
+    }
+
+
     cullSpecies(false);
+
     //rankGlobally();
     for (var i = 0; i < pool.species.length; i++) {
         var species = pool.species[i];
@@ -786,7 +973,7 @@ function newGeneration() {
             str += ", \n";
         }
     }
-    console.log(str + "], n=" + survived.length);
+    //console.log(str + "], n=" + survived.length);
 
     var sum = totalAverageFitness();
     var children = [];
@@ -825,6 +1012,7 @@ function newGeneration() {
         addToSpecies(child);
     }
 
+
     pool.generation++;
 
 
@@ -846,5 +1034,7 @@ function initialisePool(inputn, outputn, population) {
         addToSpecies(newg);
         init_genomes.push(newg);
     }
+
+    pool.complexity = totalComplexity();
     return init_genomes;
 }
