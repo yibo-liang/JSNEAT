@@ -943,6 +943,9 @@ function newGeneration() {
 
     cullSpecies(false);
 
+    DeltaWeights = 0.4 + (3 - 0.4) / 50 * (50 - pool.species.length);
+
+
     //rankGlobally();
     for (var i = 0; i < pool.species.length; i++) {
         var species = pool.species[i];

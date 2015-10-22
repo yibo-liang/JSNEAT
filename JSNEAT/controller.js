@@ -78,6 +78,7 @@ function cellUpdate(cellData) {
                 if (cell.life <= 0) {
                     // console.log("cell id=" + cell.id + " is killed by id=" + cell.attackers[a].id);
                     cell.attackers[a].color[0] *= 0.9;
+                    cell.attackers[a].kill++;
                     break;
                 }
 
@@ -92,6 +93,7 @@ function cellUpdate(cellData) {
             cell.food_in_mouth = [];
             cell.stamina += energy;
             cell.life += energy * 0.8;
+            cell.food_eaten++;
             if (cell.life > 100)
                 cell.life = 100;
         }
@@ -114,7 +116,7 @@ function cellUpdate(cellData) {
             cell.color[2] = fixColorVec(hp * 255);
             //cell.radius = Math.floor(minRadius + (maxRadius - minRadius) * hp);
             cellgrid.updateObjPos(cell);
-            cell.fitness++;
+            cell.fitness = framecount / 50 + cell.kill * 10 + cell.food_eaten * 10 + 1;
             cell.genome.fitness = cell.fitness;
             liveCells.push(cell);
         }
@@ -197,6 +199,7 @@ function doFrame() {
         fastmode_gen--;
         //if (fastmode_gen === 0)
         //is_fastmode = false;
+        framecount = 0;
 
     }
     info.cellnum = cells.length;

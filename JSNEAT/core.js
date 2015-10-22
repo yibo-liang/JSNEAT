@@ -323,6 +323,8 @@ function Cell(genome, x, y, r) {
     }
     this.stamina = 800;
     this.life = 100;
+    this.kill = 0;
+    this.food_eaten = 0;
     this.fitness = 0;
 
 

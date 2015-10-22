@@ -156,6 +156,7 @@ function render_cellfeature(cellData) {
             }
 
             //console.log(a);
+          
 
             if (a[0] < 107) {
                 //console.log(a);
@@ -181,7 +182,7 @@ function render_cellfeature(cellData) {
             var col = pos[0];
             var row = pos[1];
             var grids = foodgrid.getNeighborGrids(col, row);
-            
+
             for (var i = 0; i < grids.length; i++) {
 
                 for (var j = 0; j < grids[i].length; j++) {
