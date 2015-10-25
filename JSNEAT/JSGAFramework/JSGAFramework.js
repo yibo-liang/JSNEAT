@@ -58,7 +58,7 @@ var Pool = function (population, isSpeciating, selectionOperator) {
             ? tourment : selectionOperator;
 
     this.CrossoverChance = 0.75;
-    this.AdoptionChanche = 0.1;
+    this.AdoptionChanche = 0.01;
 };
 
 var Species = function (pool) {
@@ -164,7 +164,7 @@ function isSameSpecies(pool, genome1, genome2, threshold) {
             var c1 = genome1.chromesomes[i];
             var c2 = genome2.chromesomes[i];
             var f = c1.deltaFunction;
-           // console.log("df=", f, "df(c1c2)=",f(c1, c2));
+            // console.log("df=", f, "df(c1c2)=",f(c1, c2));
             var df = f(c1, c2) * (c1.deltaWeight + c2.deltaWeight) / 2;
 
             sumdf += df;

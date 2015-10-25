@@ -30,9 +30,8 @@ function runExperiment(config) {
     var resultGenome;
     var gen = 0;
 
-    var minError = 99999;
-
     var correctAnswers = [];
+    var minError = 99999;
     var minVec = 99999;
     var maxVec = -99999;
     for (var k = 0; k < config.inputvecs.length; k++) {
@@ -55,11 +54,14 @@ function runExperiment(config) {
         correctAnswers.push(r);
     }
     //normalise to range (-1,1)
-    for (var k = 0; k < config.inputvecs.length; k++) {
-        correctAnswers[k] = 2 * (correctAnswers[k] - minVec) / (maxVec - minVec) - 1;
+
+    if (!config.isBooleanFunction) {
+
+        for (var k = 0; k < config.inputvecs.length; k++) {
+            correctAnswers[k] = (correctAnswers[k] - minVec) / (maxVec - minVec);
+        }
+
     }
-
-
 
     var bestGenome = null;
     var bestAnswers = [];
@@ -70,29 +72,29 @@ function runExperiment(config) {
             for (var e = 0; e < species.genomes.length; e++) {
                 var genome = species.genomes[e];
                 //console.log(species, e);
-
+                genome.properties["NeuroNetwork"] = generateNN(genome.chromesomes["NEAT"]);
                 var error = 0;
 
                 var currentAnswers = [];
                 for (var k = 0; k < config.inputvecs.length; k++) {
                     //console.log("input=", config.inputvecs[k]);
-                    genome.properties["NeuroNetwork"] = generateNN(genome.chromesomes["NEAT"]);
+
                     var network = genome.properties["NeuroNetwork"];
                     //console.log("input vecs= [" + config.inputvecs + "]");
-                    var output = evaluateNeuroNetwork(genome, network, config.inputvecs[k]);
+                    var output = evaluateNeuroNetwork(genome, network, config.inputvecs[k], false);
 
                     var answer = output[0];
-                    if (answer === 0 && config.inputvecs[k][0] === -10) {
-                        // console.log(config.inputvecs[k], answer);
+                    //if (answer === 0 && config.inputvecs[k][0] === -10) {
+                    //console.log(config.inputvecs[k], answer);
 
-                    }
+                    // }
 
-                    currentAnswers.push(answer);
+
 
                     var correctAnswer = correctAnswers[k];
 
                     if (config.isBooleanFunction) {
-                        var answer = answer > 0 ? true : false;
+                        var answer = answer > 0.5 ? true : false;
                         if (answer !== correctAnswer) {
                             error += 1;
                         }
@@ -101,7 +103,7 @@ function runExperiment(config) {
                         //console.log(correctAnswer, answer, deltaI);
                         error += Math.pow(deltaI, 2);
                     }
-
+                    currentAnswers.push(answer);
                     //console.log("output=", answer, "correct=", correctAnswer);
 
                 }
@@ -116,32 +118,39 @@ function runExperiment(config) {
 
                 if (genome.fitness > npool.maxFitness) {
                     npool.maxFitness = genome.fitness;
-                    //console.log("new max fitness = " + npool.maxFitness, "error=" + error);
+                    console.log("gen=" + gen, "new max fitness = " + npool.maxFitness, "error=" + error);
                 }
 
                 if (error < minError) {
                     minError = error;
                     bestGenome = genome;
                     bestAnswers = currentAnswers;
-
-                    for (var i in network.neurons) {
-                        if (network.neurons.hasOwnProperty(i)) {
-                            var n = network.neurons[i];
-                            console.log(i, n.cValue, n.incomingLinks, n.outcomingLinks);
-                        }
-                    }
-                    console.log(network);
-                    console.log("------------------");
-                    if (bestAnswers[0] === 0 && config.inputvecs[0][0] === -10) {
-                        console.log(genome);
-                        console.log("ba=" + bestAnswers, "iv=" + config.inputvecs);
-                        var network = genome.properties["NeuroNetwork"];
-
-                        var temp = evaluateNeuroNetwork(genome, network, [-10], true);
-                        console.log("temp=", temp);
-
-
-                    }
+                    /*
+                     for (var i in network.neurons) {
+                     if (network.neurons.hasOwnProperty(i)) {
+                     var n = network.neurons[i];
+                     console.log(i, n.cValue, n.incomingLinks, n.outcomingLinks);
+                     }
+                     }
+                     console.log(network);
+                     console.log("------------------");
+                     if (bestAnswers[0] === 0 && config.inputvecs[0][0] === -10) {
+                     console.log(genome);
+                     console.log("ba=" + bestAnswers, "iv=" + config.inputvecs);
+                     var network = genome.properties["NeuroNetwork"];
+                     
+                     
+                     console.log("temp=", temp);
+                     
+                     
+                     }
+                    
+                    var tempnet = generateNN(genome.chromesomes["NEAT"]);
+                    var temp = evaluateNeuroNetwork(genome, tempnet, [0, 0], true);
+                    var temp = evaluateNeuroNetwork(genome, tempnet, [0, 1], true);
+                    var temp = evaluateNeuroNetwork(genome, tempnet, [1, 0], true);
+                    var temp = evaluateNeuroNetwork(genome, tempnet, [1, 1], true); */
+                    
                 }
                 if (error <= config.errorExpectation) {
                     done = true;
@@ -159,8 +168,8 @@ function runExperiment(config) {
         gen++;
         //console.log(bestGenome.fitness);
         //console.log("next gen -------------------------------");
-    } while (!done && gen < 100);
-    console.log(resultGenome);
+    } while (!done && gen < config.maxGeneration);
+    console.log(bestGenome);
     //console.log("gen = " + npool.generation, npool);
 
     var vecToStr = function (vec) {
@@ -174,8 +183,8 @@ function runExperiment(config) {
         return result;
     };
 
-    config.container.innerHTML += "<p> Experiment with function " + config.expFunction + "</p>";
-    //config.container.innerHTML += "<p> and with input " + vecToStr(config.inputvecs) + "</p>";
+    config.container.innerHTML += "<p> Experiment with function " + config.expFunction.name + "</p>";
+    config.container.innerHTML += "<p> and with input " + vecToStr(config.inputvecs) + "</p>";
     config.container.innerHTML += "<p> Result: " + resultGenome + "</p>";
     config.container.innerHTML += "<p> output Vec  : " + vecToStr(bestAnswers) + "</p>";
     config.container.innerHTML += "<p> Expected Vec: " + vecToStr(correctAnswers) + "</p>";

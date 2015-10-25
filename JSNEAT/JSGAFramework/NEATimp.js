@@ -1,18 +1,18 @@
-var MaxNodes = 10;
+var MaxNodes = 50;
 
 
 var useBias = true;
 
-var isRecurrent = false;
+var isRecurrent = true;
 
 
 var CrossoverChance = 0.75;
 var AdoptionChanche = 0.01;
 
-var PointMutationChance = 0.15;
-var LinkMutationChance = 0.5;
-var NodeMutationChance = 0.3;
-var BiasMutationChance = 0.10;
+var PointMutationChance = 0.35;
+var LinkMutationChance = 1.5;
+var NodeMutationChance = 0.6;
+var BiasMutationChance = 0.20;
 
 var DisableMutationChance = 0.4;
 var EnableMutationChance = 0.2;
@@ -58,7 +58,7 @@ Gene.prototype.copy = function () {
 };
 
 function sigmoid(x) {
-    return 2 / (1 + Math.exp(-4.9 * x)) - 1;
+    return 1 / (1 + Math.exp(-4.9 * x));
 }
 
 var Neuron = function () {
@@ -77,6 +77,35 @@ var Network = function (chromesome) {
 Network.prototype.copy = function () {
     return generateNN(this.chromesome);
 };
+
+function NeuronCompare(n1, n2) {
+    var getType = function (i) {
+        return i.substring(0, 1);
+    };
+    var getNumber = function (i) {
+        return +i.substring(1);
+    };
+
+    var typeToNum = function (t) {
+        if (t === "I") {
+            return 0;
+        }
+        if (t === "B") {
+            return 10000;
+        }
+        if (t === "H") {
+            return 20000;
+        }
+        if (t === "O") {
+            return 30000;
+        }
+    };
+    var typea = getType(n1);
+    var typeb = getType(n2);
+    var na = getNumber(n1) + typeToNum(typea);
+    var nb = getNumber(n2) + typeToNum(typeb);
+    return na - nb;
+}
 
 function generateNN(chromesome) {
     var network = new Network(chromesome);
@@ -115,17 +144,23 @@ function generateNN(chromesome) {
             var neuron = network.neurons[neuron_i];
 
             neuron.incomingLinks.push(gene);
+
+        }
+    }
+
+
+    for (var i = 0; i < chromesome.genes.length; i++) {
+        var gene = chromesome.genes[i];
+        if (gene.enable === true) {
             if (typeof network.neurons[gene.in] === "undefined") {
                 network.neurons[gene.in] = new Neuron();
                 network.indices.push(gene.in);
             }
+            var neuron_i = gene.in;
+            var neuron = network.neurons[neuron_i];
 
-            for (var k = 0; k < chromesome.genes.length; k++) {
-                var genek = chromesome.genes[k];
-                if (genek.in === neuron_i) {
-                    neuron.outcomingLinks.push(genek);
-                }
-            }
+            neuron.outcomingLinks.push(gene);
+
         }
     }
 
@@ -151,45 +186,56 @@ function evaluateNeuroNetwork(genome, network, inputArray, isDebuging) {
     for (var i = 0; i < inputs; i++) {
         network.neurons["I" + i].cValue = inputVec[i];
     }
-    var debugstr = "";
+
+    //sort all neuron, from input -> bias -> hidden -> output
+    var neuronList = [];
     for (var i in network.neurons) {
         if (network.neurons.hasOwnProperty(i)) {
-            if (i === "B")
-                continue
-            var neuron = network.neurons[i];
-
-            debugstr += "Debug neuron i='" + i + "';\n";
-
-            //console.log(i, neuron);
-            var sum = 0;
-            for (var j = 0; j < neuron.incomingLinks.length; j++) {
-                var incoming = neuron.incomingLinks[j];
-                var other = network.neurons[incoming.in];
-                //console.log(incoming, other);
-                sum += incoming.weight * other.cValue;
-                debugstr += "value += n[" + incoming.in + "](" + other.cValue + ")*" + incoming.weight + "\n";
-                //console.log("sum=",sum);
-            }
-            debugstr += "value=" + sum + ", sigmoid(value)=" + neuron.thresholdFunction(sum) + "\n";
-            if (neuron.incomingLinks.length > 0) {
-                if (typeof isDebuging !== "undefined" && isDebuging) {
-                    console.log(debugstr);
-                    console.log(network);
-
-                }
-                var temp = neuron.thresholdFunction(sum);
-                //if recurrent network is used, then save the new value for next iteration,
-                //otherwise, save the new value for current iteration
-                if (isRecurrent === true) {
-                    neuron.nValue = temp;
-                } else {
-                    neuron.cValue = temp;
-                }
-                //console.log("v=",neuron.v);
-            }
-
-            //console.log("i=", i, "  v=", network.neurons[i].v);
+            neuronList.push(i);
         }
+    }
+    neuronList.sort(NeuronCompare);
+    //console.log(neuronList);
+
+    var debugstr = "";
+    for (var i in neuronList) {
+        var ni = neuronList[i];
+        if (ni === "B")
+            continue
+        var neuron = network.neurons[ni];
+
+        debugstr += "Debug neuron ni='" + ni + "';\n";
+
+        //console.log(i, neuron);
+        var sum = 0;
+        for (var j = 0; j < neuron.incomingLinks.length; j++) {
+            var incoming = neuron.incomingLinks[j];
+            var other = network.neurons[incoming.in];
+            //console.log(incoming, other);
+            sum += incoming.weight * other.cValue;
+            debugstr += "value += n[" + incoming.in + "](" + other.cValue + ")*" + incoming.weight + "\n";
+            //console.log("sum=",sum);
+        }
+        debugstr += "value=" + sum + ", sigmoid(value)=" + neuron.thresholdFunction(sum) + "\n";
+        if (neuron.incomingLinks.length > 0) {
+            if (typeof isDebuging !== "undefined" && isDebuging) {
+                console.log(debugstr);
+                console.log(network);
+
+            }
+            var temp = neuron.thresholdFunction(sum);
+            //if recurrent network is used, then save the new value for next iteration,
+            //otherwise, save the new value for current iteration
+            if (isRecurrent === true) {
+                neuron.nValue = temp;
+            } else {
+                neuron.cValue = temp;
+            }
+            //console.log("v=",neuron.v);
+        }
+
+        //console.log("i=", i, "  v=", network.neurons[i].v);
+
     }
 
     if (isRecurrent === true)
@@ -211,6 +257,11 @@ function evaluateNeuroNetwork(genome, network, inputArray, isDebuging) {
         //    outputArray.push(false);
         //}
         outputArray.push(v);
+    }
+    if (isDebuging) {
+        console.log("input=" + inputArray);
+        console.log("output=" + outputArray);
+        console.log("---------------------");
     }
     return outputArray;
 
@@ -362,7 +413,7 @@ function pointMutate(chromesome) {
         if (Math.random() < chance) {
             gene.weight = gene.weight + Math.random() * step * 2 - step;
         } else {
-            gene.weight = Math.random() * step * 4 - 2;
+            gene.weight = Math.random() * step * 2 - 1;
         }
     }
 
@@ -411,6 +462,7 @@ function linkMutation(chromesome, forceBias) {
 
 
 function nodeMutation(chromesome) {
+    //console.log("nodeMutation");
     var genome = chromesome.genome;
     if (genome.properties["hiddenNeurons"] >= MaxNodes) {
         return;
@@ -587,6 +639,24 @@ function baseNEATChromesome(genome, initInputs, initOutputs) {
             NEATdeltaWeight
             );
 
+    for (var i = 0; i <= initInputs; i++) {
+        for (var j = 0; j < initOutputs; j++) {
+            var gene = new Gene();
+            var link_in;
+            var link_out;
+            if (i === initInputs) {
+                link_in = "B";
+            } else {
+                link_in = "I" + i;
+            }
+            link_out = "O" + j;
+            gene.in = link_in;
+            gene.out = link_out;
+            gene.weight = Math.random() * 2 - 1;
+            result.genes.push(gene);
+        }
+    }
+
     return result;
 }
 ;
@@ -638,7 +708,7 @@ function initNEATPool(inputn, outputn, population) {
     var init_genomes = [];
     var pool = new Pool(population, true);
 
-    for (var i = 0; i < population / 2; i++) {
+    for (var i = 0; i < population; i++) {
         var basicGenome = new Genome(pool);
         var chromesome = baseNEATChromesome(basicGenome, inputn, outputn);
         basicGenome.chromesomes["NEAT"] = chromesome;
