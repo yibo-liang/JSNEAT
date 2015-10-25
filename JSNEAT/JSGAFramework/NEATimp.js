@@ -1,9 +1,9 @@
-var MaxNodes = 50;
+var MaxNodes = 8;
 
 
 var useBias = true;
 
-var isRecurrent = true;
+var isRecurrent = false;
 
 
 var CrossoverChance = 0.75;
@@ -653,7 +653,7 @@ function baseNEATChromesome(genome, initInputs, initOutputs) {
             gene.in = link_in;
             gene.out = link_out;
             gene.weight = Math.random() * 2 - 1;
-            result.genes.push(gene);
+            //result.genes.push(gene);
         }
     }
 

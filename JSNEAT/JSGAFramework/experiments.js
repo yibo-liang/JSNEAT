@@ -21,11 +21,30 @@ var ExperimentConfiguration =
             //console.log(this);
         };
 
+function experimentLoop(config) {
+
+}
+
 function runExperiment(config) {
     //console.log(config.inputNum);
     var obj = initNEATPool(config.inputNum, 1, 50);
     var genomes = obj.genomes;
     var npool = obj.pool;
+
+    var vecToStr = function (vec) {
+        var result = "";
+        for (var i = 0; i < vec.length; i++) {
+            result += "(" + vec[i] + ")";
+            if (i < vec.length - 1) {
+                result += ",";
+            }
+        }
+        return result;
+    };
+    config.container.innerHTML = "";
+    config.container.innerHTML += "<p> Experiment with function " + config.expFunction.name + "</p>";
+    config.container.innerHTML += "<p> and with input " + vecToStr(config.inputvecs) + "</p>";
+
     var done = false;
     var resultGenome;
     var gen = 0;
@@ -114,7 +133,10 @@ function runExperiment(config) {
                     return 2 * (1 - 1 / (Math.exp(-x * 0.5) + 1));
                 };
 
+
+
                 genome.fitness = reverseSigmoid(error);
+                //genome.fitness = 1 / (error + 0.01);
 
                 if (genome.fitness > npool.maxFitness) {
                     npool.maxFitness = genome.fitness;
@@ -144,13 +166,13 @@ function runExperiment(config) {
                      
                      
                      }
-                    
-                    var tempnet = generateNN(genome.chromesomes["NEAT"]);
-                    var temp = evaluateNeuroNetwork(genome, tempnet, [0, 0], true);
-                    var temp = evaluateNeuroNetwork(genome, tempnet, [0, 1], true);
-                    var temp = evaluateNeuroNetwork(genome, tempnet, [1, 0], true);
-                    var temp = evaluateNeuroNetwork(genome, tempnet, [1, 1], true); */
-                    
+                     
+                     var tempnet = generateNN(genome.chromesomes["NEAT"]);
+                     var temp = evaluateNeuroNetwork(genome, tempnet, [0, 0], true);
+                     var temp = evaluateNeuroNetwork(genome, tempnet, [0, 1], true);
+                     var temp = evaluateNeuroNetwork(genome, tempnet, [1, 0], true);
+                     var temp = evaluateNeuroNetwork(genome, tempnet, [1, 1], true); */
+
                 }
                 if (error <= config.errorExpectation) {
                     done = true;
@@ -172,19 +194,7 @@ function runExperiment(config) {
     console.log(bestGenome);
     //console.log("gen = " + npool.generation, npool);
 
-    var vecToStr = function (vec) {
-        var result = "";
-        for (var i = 0; i < vec.length; i++) {
-            result += "(" + vec[i] + ")";
-            if (i < vec.length - 1) {
-                result += ",";
-            }
-        }
-        return result;
-    };
 
-    config.container.innerHTML += "<p> Experiment with function " + config.expFunction.name + "</p>";
-    config.container.innerHTML += "<p> and with input " + vecToStr(config.inputvecs) + "</p>";
     config.container.innerHTML += "<p> Result: " + resultGenome + "</p>";
     config.container.innerHTML += "<p> output Vec  : " + vecToStr(bestAnswers) + "</p>";
     config.container.innerHTML += "<p> Expected Vec: " + vecToStr(correctAnswers) + "</p>";

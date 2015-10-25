@@ -12,9 +12,29 @@ and open the template in the editor.
         <script src="JSGAFramework.js"></script>
         <script src="NEATimp.js"></script>
         <script src="experiments.js"></script>
+        <style>
+            div.result{
+                font-size: 12px;
+            }
+
+        </style>
     </head>
     <body>
-        <div id="resultContainer"></div>
+        <div>
+            <input type="button" onclick="runExperiment(config1);" value="xor" />
+            
+            <input type="button" onclick="runExperiment(config2);" value="linear" />
+            
+            <input type="button" onclick="runExperiment(config3);" value="cubic" />
+            
+            <input type="button" onclick="runExperiment(config4);" value="sine" />
+            
+            <input type="button" onclick="runExperiment(config5);" value="tanh" />
+            
+            <input type="button" onclick="runExperiment(config6);" value="complex" />
+
+        </div>
+        <div class="result" id="resultContainer"></div>
         <script>
             function t() {
                 var obj = initNEATPool(1, 1, 1);
@@ -73,6 +93,8 @@ and open the template in the editor.
                 return x * x * x;
             }
 
+            var vec4 = vecRange(-Math.PI, Math.PI, 0.1);
+
             function sine(x) {
                 return Math.sin(x);
             }
@@ -95,32 +117,15 @@ and open the template in the editor.
             }
 
             var container = document.getElementById("resultContainer");
-            var config1 = new ExperimentConfiguration(2, vec1, xor, true, 0, 200, container);
+            var config1 = new ExperimentConfiguration(2, vec1, xor, true, 0, 1000, container);
             var config2 = new ExperimentConfiguration(1, vec2, linear, false, 0.05, 100, container);
-            var config3 = new ExperimentConfiguration(1, vec2, cubic, false, 0.1, 100, container);
-            var config4 = new ExperimentConfiguration(1, vec2, sine, false, 1, 1000, container);
-            var config5 = new ExperimentConfiguration(1, vec2, tanh, false, 1, 100, container);
+            var config3 = new ExperimentConfiguration(1, vec2, cubic, false, 0.01, 500, container);
+
+
+            var config4 = new ExperimentConfiguration(1, vec4, sine, false, 0.01, 1000, container);
+            var config5 = new ExperimentConfiguration(1, vec4, tanh, false, 0.1, 500, container);
             var config6 = new ExperimentConfiguration(2, vec3, complex, false, 0.1, 500, container);
 
-
-            setTimeout(function () {
-               //runExperiment(config1);
-            }, 0);
-            setTimeout(function () {
-                //runExperiment(config2);
-            }, 0);
-            setTimeout(function () {
-                //runExperiment(config3);
-            }, 0);
-            setTimeout(function () {
-                //runExperiment(config4);
-            }, 0);
-            setTimeout(function () {
-                //runExperiment(config5);
-            }, 0);
-            setTimeout(function () {
-                runExperiment(config6);
-            }, 0);
 
         </script>
 
