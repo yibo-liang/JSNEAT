@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<!--
+To change this license header, choose License Headers in Project Properties.
+To change this template file, choose Tools | Templates
+and open the template in the editor.
+-->
+<html>
+    <head>
+        <title>Experiments</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <script src="JSGAFramework.js"></script>
+        <script src="NEATimp.js"></script>
+        <script src="experiments.js"></script>
+    </head>
+    <body>
+        <div id="resultContainer"></div>
+        <script>
+            function t() {
+                var obj = initNEATPool(1, 1, 1);
+                var bg1 = basicNEATGenome(obj.pool, 1, 1);
+                var bg2 = basicNEATGenome(obj.pool, 1, 1);
+                console.log(bg1, bg2)
+                var i = isSameSpecies(obj.pool, bg1, bg2, 1);
+                console.log(i);
+
+            }
+            var vec1 = [[0, 0], [0, 1], [1, 0], [1, 1]];
+            function xor(input) {
+                var a = input[0];
+                var b = input[1];
+                var l1;
+                var l2;
+                if (a === 0) {
+                    l1 = false;
+                } else {
+                    l1 = true;
+                }
+
+                if (b === 0) {
+                    l2 = false;
+                } else {
+                    l2 = true;
+                }
+                return (l1 || l2) && !(l1 && l2);
+            }
+
+            function vecRange(min, max, step) {
+                var result = [];
+                for (var i = min; i <= max; i += step) {
+                    result.push([i]);
+                }
+                return result;
+            }
+
+            function vecPairRange(min1, max1, min2, max2, step1, step2) {
+                var result = [];
+                for (var i = min1; i <= max1; i += step1) {
+                    for (var j = min2; j < max2; j += step2) {
+                        result.push([i, j]);
+                    }
+                }
+                return result;
+            }
+
+            var vec2 = vecRange(-10, 10, 1);
+
+            function linear(x) {
+                return x;
+            }
+
+            function cubic(x) {
+                return x * x * x;
+            }
+
+            function sine(x) {
+                return Math.sin(x);
+            }
+
+            function tanh(x) {
+                return (Math.exp(2 * x) - 1) / (Math.exp(2 * x) + 1);
+            }
+
+            vec3 = vecPairRange(-10, 10, -10, 10, 1, 1);
+            //console.log(vec1, vec2, vec3);
+            function complex(input) {
+                var x1 = input[0];
+                var x2 = input[1];
+
+                var s0 = Math.exp(x1 - x2);
+                var s1 = Math.sin(13 * Math.pow(x1 - 0.6, 2));
+                var s2 = Math.sin(7 * x2);
+                return 1.9 * (1.35 + s0 * s1 * s2);
+
+            }
+
+            var container = document.getElementById("resultContainer");
+            var config1 = new ExperimentConfiguration(2, vec1, xor, true, 0, 500, container);
+            var config2 = new ExperimentConfiguration(1, vec2, linear, false, 0.1, 500, container);
+            var config3 = new ExperimentConfiguration(1, vec2, cubic, false, 0.1, 500, container);
+            var config4 = new ExperimentConfiguration(1, vec2, sine, false, 1, 500, container);
+            var config5 = new ExperimentConfiguration(1, vec2, tanh, false, 1, 500, container);
+            var config6 = new ExperimentConfiguration(2, vec3, complex, false, 10, 500, container);
+
+
+            setTimeout(function () {
+                //runExperiment(config1);
+            }, 0);
+            setTimeout(function () {
+                runExperiment(config2);
+            }, 0);
+            setTimeout(function () {
+                //runExperiment(config3);
+            }, 0);
+            setTimeout(function () {
+                //runExperiment(config4);
+            }, 0);
+            setTimeout(function () {
+                //runExperiment(config5);
+            }, 0);
+            setTimeout(function () {
+                //runExperiment(config6);
+            }, 0);
+
+        </script>
+
+    </body>
+</html>
