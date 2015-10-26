@@ -1,4 +1,100 @@
+var vecToStr = function (vec) {
+    var result = "";
+    for (var i = 0; i < vec.length; i++) {
+        result += "(" + vec[i] + ")";
+        if (i < vec.length - 1) {
+            result += ",";
+        }
+    }
+    return result;
+};
 
+function joinVectors(vec1, vec2) {
+    if (vec1.length === vec2.length) {
+        var result = [];
+        for (var i = 0; i < vec1.length; i++) {
+            result.push({x: vec1[i][0], y: vec2[i]});
+        }
+        return result;
+    } else {
+        return [];
+    }
+}
+
+function getDomain(data, func) {
+    var min = 9999999;
+    var max = -9999999;
+    //console.log(data);
+    for (var i = 0; i < data.length; i++) {
+        var d = func(data[i]);
+        if (d > max)
+            max = d;
+        if (d < min)
+            min = d;
+    }
+    //console.log(min, max);
+    return [min, max];
+}
+
+function renderFunction(data, container, color, isIdeaGraph) {
+    var vis = d3.select('#' + container),
+            WIDTH = 1000,
+            HEIGHT = 500,
+            MARGINS = {
+                top: 20,
+                right: 20,
+                bottom: 20,
+                left: 50
+            };
+    if (!isIdeaGraph)
+        vis.selectAll("*").remove();
+    var xRange = d3.scale.linear().
+            range([MARGINS.left, WIDTH - MARGINS.right]).
+            domain(
+                    getDomain(data, function (d) {
+                        return d.x;
+                    }));
+    var yRange = d3.scale.linear()
+            .range([HEIGHT - MARGINS.top, MARGINS.bottom])
+            .domain([0, 1]);
+    if (!isIdeaGraph) {
+        var xAxis = d3.svg.axis()
+                .scale(xRange)
+                .tickSize(5)
+                .tickSubdivide(true);
+        var yAxis = d3.svg.axis()
+                .scale(yRange)
+                .tickSize(5)
+                .orient('left')
+                .tickSubdivide(true);
+
+
+        vis.append('svg:g')
+                .attr('class', 'x axis')
+                .attr('transform', 'translate(0,' + (HEIGHT - MARGINS.bottom) + ')')
+                .call(xAxis);
+
+        vis.append('svg:g')
+                .attr('class', 'y axis')
+                .attr('transform', 'translate(' + (MARGINS.left) + ',0)')
+                .call(yAxis);
+    }
+
+
+    var lineFunc = d3.svg.line()
+            .x(function (d) {
+                return xRange(d.x);
+            })
+            .y(function (d) {
+                return yRange(d.y);
+            }).interpolate('linear');
+
+    vis.append('svg:path')
+            .attr('d', lineFunc(data))
+            .attr('stroke', color)
+            .attr('stroke-width', 1)
+            .attr('fill', 'none');
+}
 
 var ExperimentConfiguration =
         function (
@@ -8,6 +104,7 @@ var ExperimentConfiguration =
                 isBooleanFunction,
                 errorExpectation,
                 maxGeneration,
+                maxHN,
                 container
                 ) {
             this.inputNum = inputNum;
@@ -17,40 +114,152 @@ var ExperimentConfiguration =
             this.errorExpectation = errorExpectation;
             this.maxGeneration = maxGeneration;
             //console.log(container)
+            this.maxHiddenNeurons = maxHN;
             this.container = container;
             //console.log(this);
         };
 
-function experimentLoop(config) {
+function experimentLoop(currentGen, config, pool, correctAnswers, finishCallback) {
+
+    var bestGenome = null;
+
+    var done = false;
+    var bestAnswers = [];
+
+    var resultGenome;
+    var minError = 99999;
+    config.container.innerHTML = "Generation " + currentGen + "/" + config.maxGeneration;
+
+    config.container.innerHTML += "<p>best fitness = " + pool.maxFitness + "</p>";
+    for (var d = 0; d < pool.species.length; d++) {
+        var species = pool.species[d];
+        //for each genome in this species
+        for (var e = 0; e < species.genomes.length; e++) {
+            var genome = species.genomes[e];
+            //console.log(species, e);
+            genome.properties["NeuroNetwork"] = generateNN(genome.chromesomes["NEAT"]);
+            var error = 0;
+
+            var currentAnswers = [];
+            for (var k = 0; k < config.inputvecs.length; k++) {
+                //console.log("input=", config.inputvecs[k]);
+
+                var network = genome.properties["NeuroNetwork"];
+                //console.log("input vecs= [" + config.inputvecs + "]");
+                var output = evaluateNeuroNetwork(genome, network, config.inputvecs[k], false);
+
+                var answer = output[0];
+                var correctAnswer = correctAnswers[k];
+
+                if (config.isBooleanFunction) {
+                    var answer = answer > 0.5 ? true : false;
+                    if (answer !== correctAnswer) {
+                        error += 1;
+                    }
+                } else {
+                    var deltaI = correctAnswer - answer;
+                    //console.log(correctAnswer, answer, deltaI);
+                    error += Math.pow(deltaI, 2);
+                }
+                currentAnswers.push(answer);
+                //console.log("output=", answer, "correct=", correctAnswer);
+
+            }
+
+            var reverseSigmoid = function (x) {
+                return 2 * (1 - 1 / (Math.exp(-x * 2) + 1));
+            };
+
+            genome.fitness = reverseSigmoid(error);
+            //genome.fitness = 1 / (error + 0.01);
+            if (genome.fitness > pool.maxFitness) {
+                pool.maxFitness = genome.fitness;
+                //console.log("gen=" + currentGen, "new max fitness = " + pool.maxFitness, "error=" + error);
+
+                var data = joinVectors(config.inputvecs, bestAnswers);
+                var container = "graph";
+
+                renderFunction(data, container, "green", false);
+
+            }
+            if (error < minError) {
+                minError = error;
+                bestGenome = genome;
+                bestAnswers = currentAnswers;
+            }
+            if (error <= config.errorExpectation) {
+                done = true;
+                resultGenome = genome;
+                break;
+            }
+        }
+        if (done === true) {
+            break;
+        }
+
+    }
+
+    if (!done && currentGen < config.maxGeneration) {
+        setTimeout(function () {
+            nextGeneration(pool);
+            experimentLoop(currentGen + 1, config, pool, correctAnswers, finishCallback);
+        }, 0);
+    } else {
+        finishCallback(currentGen, config, correctAnswers, bestAnswers, bestGenome, minError);
+        return;
+    }
+
+}
+
+function finishExperiment(generation, config, correctAnswers, bestAnswers, bestGenome, minError) {
+
+
+    console.log(bestGenome);
+    //console.log("gen = " + npool.generation, npool);
+
+
+
+    config.container.innerHTML += "<p> Result: " + bestGenome + "</p>";
+    //config.container.innerHTML += "<p> output Vec  : " + vecToStr(bestAnswers) + "</p>";
+    //config.container.innerHTML += "<p> Expected Vec: " + vecToStr(correctAnswers) + "</p>";
+    config.container.innerHTML += "<p> Min Error = " + minError + "</p>";
+    config.container.innerHTML += "<p> Generation = " + generation + "</p>";
+
+    var table = "";
+    table += "<table class='resultTable'>";
+
+    table += "<tr><td>Input</td><td>Idea Output</td><td>Actual Output</td><td>delta</td></tr>";
+    for (var i = 0; i < bestAnswers.length; i++) {
+        var delta = Math.abs(correctAnswers[i] - bestAnswers[i]);
+        if (config.isBooleanFunction) {
+            delta = correctAnswers[i] === bestAnswers[i] ? "Same" : "Different";
+        }
+
+        table +=
+                "<tr><td>" + config.inputvecs[i] +
+                "</td><td>" + correctAnswers[i] +
+                "</td><td>" + bestAnswers[i] +
+                "</td><td>" + delta +
+                "</td></tr>";
+    }
+    config.container.innerHTML += table + "</table>";
+
+
+
 
 }
 
 function runExperiment(config) {
     //console.log(config.inputNum);
-    var obj = initNEATPool(config.inputNum, 1, 50);
-    var genomes = obj.genomes;
-    var npool = obj.pool;
 
-    var vecToStr = function (vec) {
-        var result = "";
-        for (var i = 0; i < vec.length; i++) {
-            result += "(" + vec[i] + ")";
-            if (i < vec.length - 1) {
-                result += ",";
-            }
-        }
-        return result;
-    };
+    var obj = initNEATPool(config.inputNum, 1, 50, config.maxHiddenNeurons);
+
     config.container.innerHTML = "";
     config.container.innerHTML += "<p> Experiment with function " + config.expFunction.name + "</p>";
     config.container.innerHTML += "<p> and with input " + vecToStr(config.inputvecs) + "</p>";
 
-    var done = false;
-    var resultGenome;
-    var gen = 0;
 
     var correctAnswers = [];
-    var minError = 99999;
     var minVec = 99999;
     var maxVec = -99999;
     for (var k = 0; k < config.inputvecs.length; k++) {
@@ -81,129 +290,11 @@ function runExperiment(config) {
         }
 
     }
+    var data = joinVectors(config.inputvecs, correctAnswers, true);
+    var container = "ideagraph";
+    renderFunction(data, container, "red");
 
-    var bestGenome = null;
-    var bestAnswers = [];
-    do {
-        for (var d = 0; d < npool.species.length; d++) {
-            var species = npool.species[d];
-            //for each genome in this species
-            for (var e = 0; e < species.genomes.length; e++) {
-                var genome = species.genomes[e];
-                //console.log(species, e);
-                genome.properties["NeuroNetwork"] = generateNN(genome.chromesomes["NEAT"]);
-                var error = 0;
-
-                var currentAnswers = [];
-                for (var k = 0; k < config.inputvecs.length; k++) {
-                    //console.log("input=", config.inputvecs[k]);
-
-                    var network = genome.properties["NeuroNetwork"];
-                    //console.log("input vecs= [" + config.inputvecs + "]");
-                    var output = evaluateNeuroNetwork(genome, network, config.inputvecs[k], false);
-
-                    var answer = output[0];
-                    //if (answer === 0 && config.inputvecs[k][0] === -10) {
-                    //console.log(config.inputvecs[k], answer);
-
-                    // }
-
-
-
-                    var correctAnswer = correctAnswers[k];
-
-                    if (config.isBooleanFunction) {
-                        var answer = answer > 0.5 ? true : false;
-                        if (answer !== correctAnswer) {
-                            error += 1;
-                        }
-                    } else {
-                        var deltaI = correctAnswer - answer;
-                        //console.log(correctAnswer, answer, deltaI);
-                        error += Math.pow(deltaI, 2);
-                    }
-                    currentAnswers.push(answer);
-                    //console.log("output=", answer, "correct=", correctAnswer);
-
-                }
-
-                //console.log(error);
-                //error = Math.sqrt(error);
-                var reverseSigmoid = function (x) {
-                    return 2 * (1 - 1 / (Math.exp(-x * 0.5) + 1));
-                };
-
-
-
-                genome.fitness = reverseSigmoid(error);
-                //genome.fitness = 1 / (error + 0.01);
-
-                if (genome.fitness > npool.maxFitness) {
-                    npool.maxFitness = genome.fitness;
-                    console.log("gen=" + gen, "new max fitness = " + npool.maxFitness, "error=" + error);
-                }
-
-                if (error < minError) {
-                    minError = error;
-                    bestGenome = genome;
-                    bestAnswers = currentAnswers;
-                    /*
-                     for (var i in network.neurons) {
-                     if (network.neurons.hasOwnProperty(i)) {
-                     var n = network.neurons[i];
-                     console.log(i, n.cValue, n.incomingLinks, n.outcomingLinks);
-                     }
-                     }
-                     console.log(network);
-                     console.log("------------------");
-                     if (bestAnswers[0] === 0 && config.inputvecs[0][0] === -10) {
-                     console.log(genome);
-                     console.log("ba=" + bestAnswers, "iv=" + config.inputvecs);
-                     var network = genome.properties["NeuroNetwork"];
-                     
-                     
-                     console.log("temp=", temp);
-                     
-                     
-                     }
-                     
-                     var tempnet = generateNN(genome.chromesomes["NEAT"]);
-                     var temp = evaluateNeuroNetwork(genome, tempnet, [0, 0], true);
-                     var temp = evaluateNeuroNetwork(genome, tempnet, [0, 1], true);
-                     var temp = evaluateNeuroNetwork(genome, tempnet, [1, 0], true);
-                     var temp = evaluateNeuroNetwork(genome, tempnet, [1, 1], true); */
-
-                }
-                if (error <= config.errorExpectation) {
-                    done = true;
-                    resultGenome = genome;
-                    break;
-                }
-
-            }
-            if (done === true) {
-                break;
-            }
-
-        }
-        nextGeneration(npool);
-        gen++;
-        //console.log(bestGenome.fitness);
-        //console.log("next gen -------------------------------");
-    } while (!done && gen < config.maxGeneration);
-    console.log(bestGenome);
-    //console.log("gen = " + npool.generation, npool);
-
-
-    config.container.innerHTML += "<p> Result: " + resultGenome + "</p>";
-    config.container.innerHTML += "<p> output Vec  : " + vecToStr(bestAnswers) + "</p>";
-    config.container.innerHTML += "<p> Expected Vec: " + vecToStr(correctAnswers) + "</p>";
-
-    config.container.innerHTML += "<p> Min Error = " + minError + "</p>";
-    config.container.innerHTML += "<p> Generation = " + gen + "</p>";
-
-
-
+    experimentLoop(0, config, obj.pool, correctAnswers, finishExperiment);
 
 
 }

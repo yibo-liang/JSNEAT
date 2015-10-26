@@ -1,4 +1,4 @@
-var MaxNodes = 8;
+//.var MaxNodes = 30;
 
 
 var useBias = true;
@@ -464,7 +464,7 @@ function linkMutation(chromesome, forceBias) {
 function nodeMutation(chromesome) {
     //console.log("nodeMutation");
     var genome = chromesome.genome;
-    if (genome.properties["hiddenNeurons"] >= MaxNodes) {
+    if (genome.properties["hiddenNeurons"] >= genome.properties["maxHiddenNeurons"]) {
         return;
     }
 
@@ -610,10 +610,11 @@ function NEATdeltaFunction(chromesome1, chromesome2) {
     return dd + dw;
 }
 
-function baseNEATChromesome(genome, initInputs, initOutputs) {
+function baseNEATChromesome(genome, initInputs, initOutputs, maxHN) {
     genome.properties["inputs"] = initInputs;
     genome.properties["outputs"] = initOutputs;
     genome.properties["hiddenNeurons"] = 0;
+    genome.properties["maxHiddenNeurons"] = maxHN;
 
     genome.properties["PertubStep"] = PerturbStep;
     genome.properties["PertubChance"] = PerturbChance;
@@ -704,13 +705,13 @@ function basicNEATGenome(pool, inputn, outputn) {
     return basicGenome;
 }
 
-function initNEATPool(inputn, outputn, population) {
+function initNEATPool(inputn, outputn, population, maxHN) {
     var init_genomes = [];
     var pool = new Pool(population, true);
 
     for (var i = 0; i < population; i++) {
         var basicGenome = new Genome(pool);
-        var chromesome = baseNEATChromesome(basicGenome, inputn, outputn);
+        var chromesome = baseNEATChromesome(basicGenome, inputn, outputn, maxHN);
         basicGenome.chromesomes["NEAT"] = chromesome;
         basicGenome.properties["NeuroNetwork"] = generateNN(chromesome);
         chromesome.chromesomeOperator.mutateOperator(chromesome);

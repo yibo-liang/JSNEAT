@@ -1,9 +1,5 @@
 <!DOCTYPE html>
-<!--
-To change this license header, choose License Headers in Project Properties.
-To change this template file, choose Tools | Templates
-and open the template in the editor.
--->
+
 <html>
     <head>
         <title>Experiments</title>
@@ -11,28 +7,42 @@ and open the template in the editor.
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <script src="JSGAFramework.js"></script>
         <script src="NEATimp.js"></script>
+
+        <script src="http://d3js.org/d3.v3.min.js"></script>
         <script src="experiments.js"></script>
         <style>
             div.result{
                 font-size: 12px;
             }
-
+            table, th, td {
+                border: 1px solid black;
+                border-collapse: collapse;
+            }
         </style>
     </head>
     <body>
-        <div>
+
+        <div id="buttons">
             <input type="button" onclick="runExperiment(config1);" value="xor" />
-            
+
             <input type="button" onclick="runExperiment(config2);" value="linear" />
-            
+
             <input type="button" onclick="runExperiment(config3);" value="cubic" />
-            
+
             <input type="button" onclick="runExperiment(config4);" value="sine" />
-            
+
             <input type="button" onclick="runExperiment(config5);" value="tanh" />
-            
+
             <input type="button" onclick="runExperiment(config6);" value="complex" />
 
+        </div>
+        <div style="position: relative; height: 500px">
+            <div style="position: absolute; top:0px">
+                <svg id="graph"  width="1000" height="500" ></svg>
+            </div>
+            <div  style="position: absolute; top:0px">
+                <svg id="ideagraph"  width="1000" height="500"></svg>
+            </div>
         </div>
         <div class="result" id="resultContainer"></div>
         <script>
@@ -83,7 +93,7 @@ and open the template in the editor.
                 return result;
             }
 
-            var vec2 = vecRange(-10, 10, 1);
+            var vec2 = vecRange(-3, 3, 0.1);
 
             function linear(x) {
                 return x;
@@ -103,7 +113,7 @@ and open the template in the editor.
                 return (Math.exp(2 * x) - 1) / (Math.exp(2 * x) + 1);
             }
 
-            vec3 = vecPairRange(-10, 10, -10, 10, 1, 1);
+            vec3 = vecPairRange(-2, 2, -2, 2, 0.1, 0.1);
             //console.log(vec1, vec2, vec3);
             function complex(input) {
                 var x1 = input[0];
@@ -117,14 +127,14 @@ and open the template in the editor.
             }
 
             var container = document.getElementById("resultContainer");
-            var config1 = new ExperimentConfiguration(2, vec1, xor, true, 0, 1000, container);
-            var config2 = new ExperimentConfiguration(1, vec2, linear, false, 0.05, 100, container);
-            var config3 = new ExperimentConfiguration(1, vec2, cubic, false, 0.01, 500, container);
+            var config1 = new ExperimentConfiguration(2, vec1, xor, true, 0, 1000, 5, container);
+            var config2 = new ExperimentConfiguration(1, vec2, linear, false, 0.001, 1000, 10, container);
+            var config3 = new ExperimentConfiguration(1, vec2, cubic, false, 0.01, 1000, 13, container);
 
 
-            var config4 = new ExperimentConfiguration(1, vec4, sine, false, 0.01, 1000, container);
-            var config5 = new ExperimentConfiguration(1, vec4, tanh, false, 0.1, 500, container);
-            var config6 = new ExperimentConfiguration(2, vec3, complex, false, 0.1, 500, container);
+            var config4 = new ExperimentConfiguration(1, vec4, sine, false, 0.01, 1000, 20, container);
+            var config5 = new ExperimentConfiguration(1, vec4, tanh, false, 0.0001, 500, 20, container);
+            var config6 = new ExperimentConfiguration(2, vec3, complex, false, 0.1, 500, 30, container);
 
 
         </script>

@@ -5,6 +5,7 @@ var ageSignificance = 1.5;
 var speciationThreshold = 1;
 
 
+var minSpecies = 5;
 //helper function, 
 function RandomIntInclusive(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -228,6 +229,10 @@ function cullSpecies(pool, cutToOne) {
 
 var StaleSpecies = 15;
 function removeStaleSpecies(pool) {
+
+    if (pool.species.length <= minSpecies) {
+        return;
+    }
     var survived = [];
     for (var s = 0; s < pool.species.length; s++) {
         var species = pool.species[s];
@@ -254,6 +259,9 @@ function removeStaleSpecies(pool) {
 }
 
 function removeWeakSpecies(pool) {
+    if (pool.species.length <= minSpecies) {
+        return;
+    }
     var survided = [];
 
     var sum = totalAverageFitness(pool);
@@ -389,8 +397,13 @@ function nextGeneration(pool) {
         var species = pool.species[i];
         calculateAverageFitness(species);
     }
-    if (pool.species.length >= 4) {
+    if (pool.species.length > minSpecies) {
         removeStaleSpecies(pool);
+        for (var i = 0; i < pool.species.length; i++) {
+            var species = pool.species[i];
+            calculateAverageFitness(species);
+        }
+        removeWeakSpecies(pool);
         for (var i = 0; i < pool.species.length; i++) {
             var species = pool.species[i];
             calculateAverageFitness(species);
