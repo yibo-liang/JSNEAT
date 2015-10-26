@@ -7,7 +7,7 @@ var isRecurrent = false;
 
 
 var CrossoverChance = 0.75;
-var AdoptionChanche = 0.01;
+var AdoptionChanche = 0.03;
 
 var PointMutationChance = 0.35;
 var LinkMutationChance = 1.5;

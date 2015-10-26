@@ -118,6 +118,39 @@ var ExperimentConfiguration =
             this.container = container;
             //console.log(this);
         };
+ExperimentConfiguration.prototype.inputNumber = function (n) {
+    this.inputNum = n;
+    return this;
+};
+ExperimentConfiguration.prototype.inputVectors = function (n) {
+    this.inputVector = n;
+    return this;
+};
+ExperimentConfiguration.prototype.function = function (n) {
+    this.expFunction = n;
+    return this;
+};
+ExperimentConfiguration.prototype.isBoolean = function (n) {
+    this.isBooleanFunction = n;
+    return this;
+};
+ExperimentConfiguration.prototype.stopAtError = function (n) {
+    this.errorExpectation = n;
+    return this;
+};
+ExperimentConfiguration.prototype.MaxGeneration = function (n) {
+    this.maxGeneration = n;
+    return this;
+};
+ExperimentConfiguration.prototype.maxHiddenNeurons = function (n) {
+    this.maxHN = n;
+    return this;
+};
+ExperimentConfiguration.prototype.SVGContainer = function (n) {
+    this.container = n;
+    return this;
+};
+
 
 function experimentLoop(currentGen, config, pool, correctAnswers, finishCallback) {
 
