@@ -69,13 +69,13 @@ var Neuron = function () {
     this.thresholdFunction = sigmoid;
 };
 
-var Network = function (chromesome) {
-    this.chromesome = chromesome;
+var Network = function (chromosome) {
+    this.chromosome = chromosome;
     this.neurons = {};
     this.indices = [];
 };
 Network.prototype.copy = function () {
-    return generateNN(this.chromesome);
+    return generateNN(this.chromosome);
 };
 
 function NeuronCompare(n1, n2) {
@@ -107,12 +107,12 @@ function NeuronCompare(n1, n2) {
     return na - nb;
 }
 
-function generateNN(chromesome) {
-    var network = new Network(chromesome);
+function generateNN(chromosome) {
+    var network = new Network(chromosome);
 
-    //console.log(chromesome);
-    var inputNeuronNum = chromesome.genome.properties["inputs"];
-    var outputNeuronNum = chromesome.genome.properties["outputs"];
+    //console.log(chromosome);
+    var inputNeuronNum = chromosome.genome.properties["inputs"];
+    var outputNeuronNum = chromosome.genome.properties["outputs"];
     for (var i = 0; i < inputNeuronNum; i++) {
         var n = new Neuron();
         network.neurons["I" + i] = n;
@@ -133,8 +133,8 @@ function generateNN(chromesome) {
     }
 
 
-    for (var i = 0; i < chromesome.genes.length; i++) {
-        var gene = chromesome.genes[i];
+    for (var i = 0; i < chromosome.genes.length; i++) {
+        var gene = chromosome.genes[i];
         if (gene.enable === true) {
             if (typeof network.neurons[gene.out] === "undefined") {
                 network.neurons[gene.out] = new Neuron();
@@ -149,8 +149,8 @@ function generateNN(chromesome) {
     }
 
 
-    for (var i = 0; i < chromesome.genes.length; i++) {
-        var gene = chromesome.genes[i];
+    for (var i = 0; i < chromosome.genes.length; i++) {
+        var gene = chromosome.genes[i];
         if (gene.enable === true) {
             if (typeof network.neurons[gene.in] === "undefined") {
                 network.neurons[gene.in] = new Neuron();
@@ -164,7 +164,7 @@ function generateNN(chromesome) {
         }
     }
 
-    chromesome.genome.properties["NeuroNetwork"] = network;
+    chromosome.genome.properties["NeuroNetwork"] = network;
     //console.log("generate nn=", network);
     return network;
 
@@ -333,26 +333,26 @@ function weights(geneslist1, geneslist2) {
     return sum / coincident;
 }
 
-var NEATcrossover = function (chromesome1, chromesome2) {
+var NEATcrossover = function (chromosome1, chromosome2) {
 
 
     var child = new Chromesome(
-            chromesome1.genome,
+            chromosome1.genome,
             "NEAT",
-            chromesome1.evaluator,
-            chromesome1.chromesomeOperator,
-            chromesome1.deltaFunction,
-            chromesome1.deltaWeight
+            chromosome1.evaluator,
+            chromosome1.chromosomeOperator,
+            chromosome1.deltaFunction,
+            chromosome1.deltaWeight
             );
     var innovations2 = {};
-    for (var i = 0; i < chromesome2.genes.length; i++) {
-        var gene = chromesome2.genes[i];
+    for (var i = 0; i < chromosome2.genes.length; i++) {
+        var gene = chromosome2.genes[i];
         innovations2[gene.innovation] = gene;
     }
 
 
-    for (var i = 0; i < chromesome1.genes.length; i++) {
-        var gene1 = chromesome1.genes[i];
+    for (var i = 0; i < chromosome1.genes.length; i++) {
+        var gene1 = chromosome1.genes[i];
         var gene2 = innovations2[gene1.innovation];
         if (typeof gene2 !== "undefined" && gene2.enable === true) {
             child.genes.push(gene2.copy());
@@ -404,12 +404,12 @@ function containsLink(genes, link) {
 }
 
 
-function pointMutate(chromesome) {
+function pointMutate(chromosome) {
     //console.log("pointMutation");
-    var step = chromesome.genome.properties["PertubStep"];
-    var chance = chromesome.genome.properties["PertubChance"];
-    for (var i = 0; i < chromesome.genes.length; i++) {
-        var gene = chromesome.genes[i];
+    var step = chromosome.genome.properties["PertubStep"];
+    var chance = chromosome.genome.properties["PertubChance"];
+    for (var i = 0; i < chromosome.genes.length; i++) {
+        var gene = chromosome.genes[i];
         if (Math.random() < chance) {
             gene.weight = gene.weight + Math.random() * step * 2 - step;
         } else {
@@ -421,12 +421,12 @@ function pointMutate(chromesome) {
 
 
 
-function linkMutation(chromesome, forceBias) {
+function linkMutation(chromosome, forceBias) {
     //console.log("linkMutation");
 
-    var neuron1 = randomNeuron(chromesome.genome, false, false);
-    var neuron2 = randomNeuron(chromesome.genome, true, true);
-    var inputs = chromesome.genome.properties["inputs"];
+    var neuron1 = randomNeuron(chromosome.genome, false, false);
+    var neuron2 = randomNeuron(chromosome.genome, true, true);
+    var inputs = chromosome.genome.properties["inputs"];
 
     if (isInputNeuron(neuron1) && isInputNeuron(neuron2)) {
         // both inputs neuron
@@ -451,28 +451,28 @@ function linkMutation(chromesome, forceBias) {
     if (forceBias) {
         newLink.in = "B";
     }
-    if (containsLink(chromesome.genes, newLink)) {
+    if (containsLink(chromosome.genes, newLink)) {
         return;
     }
-    newLink.innovation = newInnovation(chromesome.genome.pool);
+    newLink.innovation = newInnovation(chromosome.genome.pool);
     //console.log("new link=", newLink)
     newLink.weight = Math.random() * 4 - 2;
-    chromesome.genes.push(newLink);
+    chromosome.genes.push(newLink);
 }
 
 
-function nodeMutation(chromesome) {
+function nodeMutation(chromosome) {
     //console.log("nodeMutation");
-    var genome = chromesome.genome;
+    var genome = chromosome.genome;
     if (genome.properties["hiddenNeurons"] >= genome.properties["maxHiddenNeurons"]) {
         return;
     }
 
-    if (chromesome.genes.length === 0) {
+    if (chromosome.genes.length === 0) {
         return;
     }
 
-    var gene = chromesome.genes[RandomIntInclusive(0, chromesome.genes.length - 1)];
+    var gene = chromosome.genes[RandomIntInclusive(0, chromosome.genes.length - 1)];
     if (gene.enable === false) {
         return;
     }
@@ -485,23 +485,23 @@ function nodeMutation(chromesome) {
     gene1.weight = 1.0;
     gene1.innovation = newInnovation(genome.pool);
     gene1.enable = true;
-    chromesome.genes.push(gene1);
+    chromosome.genes.push(gene1);
     var gene2 = gene.copy();
     gene2.in = "H" + genome.properties["hiddenNeurons"];
     gene2.innovation = newInnovation(genome.pool);
     gene2.enable = true;
-    chromesome.genes.push(gene2);
+    chromosome.genes.push(gene2);
     //console.log(gene, ",", gene1, ",", gene2);
     //console.log();
 }
 
 
 
-function enableDisableMutate(chromesome, enable) {
+function enableDisableMutate(chromosome, enable) {
     var candidates = [];
-    for (var i = 0; i < chromesome.genes.length; i++) {
-        if (chromesome.genes[i].enable !== enable) {
-            candidates.push(chromesome.genes[i]);
+    for (var i = 0; i < chromosome.genes.length; i++) {
+        if (chromosome.genes[i].enable !== enable) {
+            candidates.push(chromosome.genes[i]);
         }
     }
     if (candidates.length === 0) {
@@ -512,26 +512,26 @@ function enableDisableMutate(chromesome, enable) {
 }
 
 
-function deleteOneLink(chromesome, gene) {
-    var len1 = chromesome.genes.length;
-    for (var i = 0; i < chromesome.genes.length; i++) {
-        var g = chromesome.genes[i];
+function deleteOneLink(chromosome, gene) {
+    var len1 = chromosome.genes.length;
+    for (var i = 0; i < chromosome.genes.length; i++) {
+        var g = chromosome.genes[i];
         if (gene.in === g.in && g.out === gene.out)
         {
 
-            var deleted = chromesome.genes.splice(i, 1);
-            var len2 = chromesome.genes.length;
+            var deleted = chromosome.genes.splice(i, 1);
+            var len2 = chromosome.genes.length;
             console.log("delete link", gene.in, gene.out, "lens=", len1, len2);
             return;
         }
     }
 }
 
-function deleteDisabledLinkMutate(chromesome) {
+function deleteDisabledLinkMutate(chromosome) {
 
     var candidates = [];
-    for (var i = 0; i < chromesome.genes.length; i++) {
-        var g = chromesome.genes[i];
+    for (var i = 0; i < chromosome.genes.length; i++) {
+        var g = chromosome.genes[i];
         if (g.enable === false)
             candidates.push(g);
 
@@ -542,22 +542,22 @@ function deleteDisabledLinkMutate(chromesome) {
 
     var i = getRandomIntInclusive(0, candidates.length - 1);
     console.log("link found..");
-    deleteOneLink(chromesome, candidates[i]);
-    generateNN(chromesome);
+    deleteOneLink(chromosome, candidates[i]);
+    generateNN(chromosome);
 
 
 }
 
-var NEATmutate = function (chromesome) {
-    if (Math.random() < chromesome.genome.properties["PointMutationChance"]) {
-        pointMutate(chromesome);
+var NEATmutate = function (chromosome) {
+    if (Math.random() < chromosome.genome.properties["PointMutationChance"]) {
+        pointMutate(chromosome);
     }
-    var genome = chromesome.genome;
+    var genome = chromosome.genome;
 
     var p = genome.properties["LinkMutationChance"];
     while (p > 0) {
         if (Math.random() < p) {
-            linkMutation(chromesome, false);
+            linkMutation(chromosome, false);
         }
         p -= 1;
     }
@@ -565,7 +565,7 @@ var NEATmutate = function (chromesome) {
     var p = genome.properties["BiasMutationChance"];
     while (p > 0) {
         if (Math.random() < p) {
-            linkMutation(chromesome, true);
+            linkMutation(chromosome, true);
         }
         p -= 1;
     }
@@ -573,7 +573,7 @@ var NEATmutate = function (chromesome) {
     var p = genome.properties["NodeMutationChance"];
     while (p > 0) {
         if (Math.random() < p) {
-            nodeMutation(chromesome);
+            nodeMutation(chromosome);
         }
         p -= 1;
     }
@@ -581,31 +581,31 @@ var NEATmutate = function (chromesome) {
     var p = genome.properties["EnableMutationChance"];
     while (p > 0) {
         if (Math.random() < p) {
-            enableDisableMutate(chromesome, true);
+            enableDisableMutate(chromosome, true);
         }
         p -= 1;
     }
     var p = genome.properties["DisableMutationChance"];
     while (p > 0) {
         if (Math.random() < p) {
-            enableDisableMutate(chromesome, false);
+            enableDisableMutate(chromosome, false);
         }
         p -= 1;
     }
-    return chromesome;
+    return chromosome;
 
 
 };
 
-var NEAToperator = new chromesomeOperator(NEATcrossover, NEATmutate);
+var NEAToperator = new chromosomeOperator(NEATcrossover, NEATmutate);
 var NEATdeltaWeight = 1;
 
 
-function NEATdeltaFunction(chromesome1, chromesome2) {
+function NEATdeltaFunction(chromosome1, chromosome2) {
     var DeltaDisjoint = 0.4;
     var DeltaWeights = 0.4;
-    var dd = DeltaDisjoint * disjoint(chromesome1.genes, chromesome2.genes);
-    var dw = DeltaWeights * weights(chromesome1.genes, chromesome2.genes);
+    var dd = DeltaDisjoint * disjoint(chromosome1.genes, chromosome2.genes);
+    var dw = DeltaWeights * weights(chromosome1.genes, chromosome2.genes);
     //console.log(dd, dw);
     return dd + dw;
 }
@@ -674,7 +674,7 @@ function totalComplexity(pool) {
                 population++;
 
                 if (typeof species.genomes[j].properties["NeuroNetwork"] === "undefined")
-                    generateNN(species.genomes[j].chromesomes["NEAT"]);
+                    generateNN(species.genomes[j].chromosomes["NEAT"]);
 
                 var network = species.genomes[j].properties["NeuroNetwork"];
                 //console.log(network);
@@ -697,11 +697,11 @@ function totalComplexity(pool) {
 
 function basicNEATGenome(pool, inputn, outputn) {
     var basicGenome = new Genome(pool);
-    var chromesome = baseNEATChromesome(basicGenome, inputn, outputn);
-    basicGenome.chromesomes["NEAT"] = chromesome;
-    basicGenome.properties["NeuroNetwork"] = generateNN(chromesome);
-    //console.log(chromesome);
-    chromesome.chromesomeOperator.mutateOperator(chromesome);
+    var chromosome = baseNEATChromesome(basicGenome, inputn, outputn);
+    basicGenome.chromosomes["NEAT"] = chromosome;
+    basicGenome.properties["NeuroNetwork"] = generateNN(chromosome);
+    //console.log(chromosome);
+    chromosome.chromosomeOperator.mutateOperator(chromosome);
     return basicGenome;
 }
 
@@ -711,10 +711,10 @@ function initNEATPool(inputn, outputn, population, maxHN) {
 
     for (var i = 0; i < population; i++) {
         var basicGenome = new Genome(pool);
-        var chromesome = baseNEATChromesome(basicGenome, inputn, outputn, maxHN);
-        basicGenome.chromesomes["NEAT"] = chromesome;
-        basicGenome.properties["NeuroNetwork"] = generateNN(chromesome);
-        chromesome.chromesomeOperator.mutateOperator(chromesome);
+        var chromosome = baseNEATChromesome(basicGenome, inputn, outputn, maxHN);
+        basicGenome.chromosomes["NEAT"] = chromosome;
+        basicGenome.properties["NeuroNetwork"] = generateNN(chromosome);
+        chromosome.chromosomeOperator.mutateOperator(chromosome);
         addToSpecies(basicGenome, pool);
         init_genomes.push(basicGenome);
     }

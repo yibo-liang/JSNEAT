@@ -170,7 +170,7 @@ function experimentLoop(currentGen, config, pool, correctAnswers, finishCallback
         for (var e = 0; e < species.genomes.length; e++) {
             var genome = species.genomes[e];
             //console.log(species, e);
-            genome.properties["NeuroNetwork"] = generateNN(genome.chromesomes["NEAT"]);
+            genome.properties["NeuroNetwork"] = generateNN(genome.chromosomes["NEAT"]);
             var error = 0;
 
             var currentAnswers = [];

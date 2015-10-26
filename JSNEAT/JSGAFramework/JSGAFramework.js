@@ -77,16 +77,16 @@ var Species = function (pool) {
 var Genome = function (pool) {
     this.pool = pool;
     this.properties = {};
-    this.chromesomes = {};
+    this.chromosomes = {};
     this.fitness = 0;
     this.adJustedFitness = 0;
 };
 Genome.prototype.copy = function () {
     var copy = new Genome();
     copy.pool = this.pool;
-    for (var i in this.chromesomes) {
-        if (this.chromesomes.hasOwnProperty(i))
-            copy.chromesomes[i] = this.chromesomes[i].copy();
+    for (var i in this.chromosomes) {
+        if (this.chromosomes.hasOwnProperty(i))
+            copy.chromosomes[i] = this.chromosomes[i].copy();
     }
 
     for (var i in this.properties) {
@@ -102,17 +102,17 @@ Genome.prototype.copy = function () {
 
     return copy;
 };
-var chromesomeOperator = function (crossoverOperator, mutationOperator) {
+var chromosomeOperator = function (crossoverOperator, mutationOperator) {
     this.crossoverOperator = crossoverOperator;
     this.mutateOperator = mutationOperator;
 };
 
-//evaluator : evaluate this single chromesome to the phenotype corresponding to it
-var Chromesome = function (genome, name, evaluator, chromesomeOperator, deltaFunction, deltaWeight) {
+//evaluator : evaluate this single chromosome to the phenotype corresponding to it
+var Chromesome = function (genome, name, evaluator, chromosomeOperator, deltaFunction, deltaWeight) {
     this.genome = genome;
     this.genes = [];
     this.name = name;
-    this.chromesomeOperator = chromesomeOperator;
+    this.chromosomeOperator = chromosomeOperator;
 
     this.evaluator = evaluator;
     this.deltaFunction = deltaFunction;
@@ -123,7 +123,7 @@ Chromesome.prototype.copy = function () {
     for (var i = 0; i < this.genes.length; i++) {
         copy.genes.push(this.genes[i].copy());
     }
-    copy.chromesomeOperator = this.chromesomeOperator;
+    copy.chromosomeOperator = this.chromosomeOperator;
     copy.evaluator = this.evaluator;
 
     copy.deltaFunction = this.deltaFunction;
@@ -144,26 +144,26 @@ function isSameSpecies(pool, genome1, genome2, threshold) {
         return true;
     }
 
-    //if has different number of chromesomes, then false
+    //if has different number of chromosomes, then false
 
 
-    //if chromesomes have different deltaFunction(comparing function)
+    //if chromosomes have different deltaFunction(comparing function)
 
-    for (var i in genome1.chromesomes) {
-        if (genome1.chromesomes.hasOwnProperty(i)) {
+    for (var i in genome1.chromosomes) {
+        if (genome1.chromosomes.hasOwnProperty(i)) {
             // console.log(i, genome1, genome2);
-            if (typeof genome1.chromesomes[i] === "undefined" ||
-                    typeof genome2.chromesomes[i] === "undefined" ||
-                    genome1.chromesomes[i].deltaFunction !== genome2.chromesomes[i].deltaFunction) {
+            if (typeof genome1.chromosomes[i] === "undefined" ||
+                    typeof genome2.chromosomes[i] === "undefined" ||
+                    genome1.chromosomes[i].deltaFunction !== genome2.chromosomes[i].deltaFunction) {
                 return false;
             }
         }
     }
     var sumdf = 0;
-    for (var i in genome1.chromesomes) {
-        if (genome1.chromesomes.hasOwnProperty(i)) {
-            var c1 = genome1.chromesomes[i];
-            var c2 = genome2.chromesomes[i];
+    for (var i in genome1.chromosomes) {
+        if (genome1.chromosomes.hasOwnProperty(i)) {
+            var c1 = genome1.chromosomes[i];
+            var c2 = genome2.chromosomes[i];
             var f = c1.deltaFunction;
             // console.log("df=", f, "df(c1c2)=",f(c1, c2));
             var df = f(c1, c2) * (c1.deltaWeight + c2.deltaWeight) / 2;
@@ -304,19 +304,19 @@ function addToSpecies(child, pool) {
 
 function crossoverChromesomes(g1, g2, genome) {
     var newChromesomes = {};
-    for (var chromesome in g1.chromesomes) {
-        if (g1.chromesomes.hasOwnProperty(chromesome) &&
-                g2.chromesomes.hasOwnProperty(chromesome)) {
-            var c1 = g1.chromesomes[chromesome];
-            var c2 = g2.chromesomes[chromesome];
+    for (var chromosome in g1.chromosomes) {
+        if (g1.chromosomes.hasOwnProperty(chromosome) &&
+                g2.chromosomes.hasOwnProperty(chromosome)) {
+            var c1 = g1.chromosomes[chromosome];
+            var c2 = g2.chromosomes[chromosome];
 
-            var crossover1 = c1.chromesomeOperator.crossoverOperator;
-            var crossover2 = c2.chromesomeOperator.crossoverOperator;
+            var crossover1 = c1.chromosomeOperator.crossoverOperator;
+            var crossover2 = c2.chromosomeOperator.crossoverOperator;
 
             if (crossover1 === crossover2) {
                 var result = crossover1(c1, c2);
                 result.genome = genome;
-                newChromesomes[chromesome] = result;
+                newChromesomes[chromosome] = result;
             } else {
                 return null;
             }
@@ -328,15 +328,15 @@ function crossoverChromesomes(g1, g2, genome) {
 
 function mutateChromesomes(g) {
     var newChromesomes = {};
-    for (var chromesome in g.chromesomes) {
-        if (g.chromesomes.hasOwnProperty(chromesome)) {
-            var c = g.chromesomes[chromesome];
+    for (var chromosome in g.chromosomes) {
+        if (g.chromosomes.hasOwnProperty(chromosome)) {
+            var c = g.chromosomes[chromosome];
             //console.log(c);
-            var mutate = c.chromesomeOperator.mutateOperator;
+            var mutate = c.chromosomeOperator.mutateOperator;
             // console.log(g, c, mutate);
             var result = mutate(c);
             result.genome = g;
-            newChromesomes[chromesome] = result;
+            newChromesomes[chromosome] = result;
         }
     }
 
@@ -361,7 +361,7 @@ function breedChild(pool, species, potentialAdoptSpecies) {
             child = g1.copy();
             child.fitness = 0;
             child.adJustedFitness = 0;
-            child.chromesomes = crossoverChromesomes(g1, g2, child);
+            child.chromosomes = crossoverChromesomes(g1, g2, child);
 
 
         } else {
@@ -370,7 +370,7 @@ function breedChild(pool, species, potentialAdoptSpecies) {
             child = g1.copy();
             child.fitness = 0;
             child.adJustedFitness = 0;
-            child.chromesomes = crossoverChromesomes(g1, g2, child);
+            child.chromosomes = crossoverChromesomes(g1, g2, child);
 
         }
     } else {
@@ -385,8 +385,8 @@ function breedChild(pool, species, potentialAdoptSpecies) {
         }
     }
     //console.log(child);
-    child.chromesomes = mutateChromesomes(child);
-    //console.log("newchild .c =", child.chromesomes);
+    child.chromosomes = mutateChromesomes(child);
+    //console.log("newchild .c =", child.chromosomes);
     return child;
 }
 
