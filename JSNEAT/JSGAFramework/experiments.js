@@ -13,10 +13,25 @@ function joinVectors(vec1, vec2) {
     if (vec1.length === vec2.length) {
         var result = [];
         for (var i = 0; i < vec1.length; i++) {
-            result.push({x: vec1[i][0], y: vec2[i]});
+            if (vec1[i].length === 1) {
+                result.push({x: vec1[i][0], y: vec2[i]});
+            } else if (vec1[i].length === 2) {
+                var z;
+                if (vec2[i] === true) {
+                    z = 1;
+                } else if (vec2[i] === false) {
+                    z = 0;
+                } else {
+                    z = vec2[i];
+                }
+
+                result.push({x: vec1[i][0], y: vec1[i][1], z: z});
+            }
         }
+        //console.log(result);
         return result;
     } else {
+        //console.log(vec1, vec2);
         return [];
     }
 }
@@ -36,7 +51,68 @@ function getDomain(data, func) {
     return [min, max];
 }
 
-function renderFunction(data, container, color, isIdeaGraph) {
+google.load("visualization", "1");
+
+function render3d(rawData, container)
+{
+    var len = rawData.length;
+    var numRows = Math.sqrt(len);
+    var numCols = Math.sqrt(len);
+
+    var tooltipStrings = new Array();
+    var data = new google.visualization.DataTable();
+
+    for (var i = 0; i < numCols; i++)
+    {
+        data.addColumn('number', 'col' + i);
+    }
+    data.addRows(numRows);
+    //ar d = 360 / numRows;
+    var idx = 0;
+    for (var i = 0; i < numRows; i++)
+    {
+        for (var j = 0; j < numCols; j++)
+        {
+            var value = rawData[idx].z;
+            data.setValue(i, j, value);
+
+            tooltipStrings[idx] = "x:" + i + ", y:" + j + " = " + value;
+            idx++;
+        }
+    }
+    //console.log(idx);
+    if (idx === 0) {
+        console.log(rawData);
+    }
+    var containerDiv = document.getElementById(container);
+    while (containerDiv.firstChild) {
+        containerDiv.removeChild(containerDiv.firstChild);
+    }
+    var surfacePlot = new greg.ross.visualisation.SurfacePlot(containerDiv);
+
+    // Don't fill polygons in IE. It's too slow.
+    var fillPly = true;
+
+    // Define a colour gradient.
+    var colour1 = {red: 0, green: 0, blue: 255};
+    var colour2 = {red: 0, green: 255, blue: 255};
+    var colour3 = {red: 0, green: 255, blue: 0};
+    var colour4 = {red: 255, green: 255, blue: 0};
+    var colour5 = {red: 255, green: 0, blue: 0};
+    var colours = [colour1, colour2, colour3, colour4, colour5];
+
+    // Axis labels.
+    var xAxisHeader = "X";
+    var yAxisHeader = "Y";
+    var zAxisHeader = "Z";
+
+    var options = {xPos: 0, yPos: 0, width: 500, height: 500, fillPolygons: fillPly, colourGradient: colours,
+        tooltips: tooltipStrings, xTitle: xAxisHeader, yTitle: yAxisHeader, zTitle: zAxisHeader, restrictXRotation: false};
+
+    surfacePlot.draw(data, options);
+}
+
+function renderFunction2D(data, container, color, isIdeaGraph) {
     var vis = d3.select('#' + container),
             WIDTH = 1000,
             HEIGHT = 500,
@@ -105,7 +181,8 @@ var ExperimentConfiguration =
                 errorExpectation,
                 maxGeneration,
                 maxHN,
-                container
+                container,
+                graphType
                 ) {
             this.inputNum = inputNum;
             this.inputvecs = inputVector;
@@ -116,6 +193,8 @@ var ExperimentConfiguration =
             //console.log(container)
             this.maxHiddenNeurons = maxHN;
             this.container = container;
+            this.graphType = graphType;
+            this.population = 70;
             //console.log(this);
         };
 ExperimentConfiguration.prototype.inputNumber = function (n) {
@@ -150,6 +229,15 @@ ExperimentConfiguration.prototype.SVGContainer = function (n) {
     this.container = n;
     return this;
 };
+ExperimentConfiguration.prototype.SetGraphType = function (n) {
+    this.graphType = n;
+    return this;
+};
+ExperimentConfiguration.prototype.Population = function (n) {
+    this.population = n;
+    return this;
+};
+
 
 
 function experimentLoop(currentGen, config, pool, correctAnswers, finishCallback) {
@@ -164,6 +252,8 @@ function experimentLoop(currentGen, config, pool, correctAnswers, finishCallback
     config.container.innerHTML = "Generation " + currentGen + "/" + config.maxGeneration;
 
     config.container.innerHTML += "<p>best fitness = " + pool.maxFitness + "</p>";
+    config.container.innerHTML += "<p>Species count = " + pool.species.length + "</p>";
+
     for (var d = 0; d < pool.species.length; d++) {
         var species = pool.species[d];
         //for each genome in this species
@@ -174,6 +264,7 @@ function experimentLoop(currentGen, config, pool, correctAnswers, finishCallback
             var error = 0;
 
             var currentAnswers = [];
+            //var mismatch = 0;
             for (var k = 0; k < config.inputvecs.length; k++) {
                 //console.log("input=", config.inputvecs[k]);
 
@@ -187,10 +278,14 @@ function experimentLoop(currentGen, config, pool, correctAnswers, finishCallback
                 if (config.isBooleanFunction) {
                     var answer = answer > 0.5 ? true : false;
                     if (answer !== correctAnswer) {
-                        error += 1;
+                        var ca = correctAnswer ? 1 : 0;
+                        error += Math.pow(ca - output[0], 2);
                     }
                 } else {
                     var deltaI = correctAnswer - answer;
+                    if (deltaI * 10 > config.errorExpectation) {
+                        //mismatch++;
+                    }
                     //console.log(correctAnswer, answer, deltaI);
                     error += Math.pow(deltaI, 2);
                 }
@@ -198,27 +293,33 @@ function experimentLoop(currentGen, config, pool, correctAnswers, finishCallback
                 //console.log("output=", answer, "correct=", correctAnswer);
 
             }
-
+            error = Math.sqrt(error);
             var reverseSigmoid = function (x) {
                 return 2 * (1 - 1 / (Math.exp(-x * 2) + 1));
             };
 
-            genome.fitness = reverseSigmoid(error);
+            genome.fitness = reverseSigmoid(error) ;
             //genome.fitness = 1 / (error + 0.01);
             if (genome.fitness > pool.maxFitness) {
                 pool.maxFitness = genome.fitness;
                 //console.log("gen=" + currentGen, "new max fitness = " + pool.maxFitness, "error=" + error);
 
-                var data = joinVectors(config.inputvecs, bestAnswers);
-                var container = "graph";
 
-                renderFunction(data, container, "green", false);
 
             }
             if (error < minError) {
                 minError = error;
                 bestGenome = genome;
                 bestAnswers = currentAnswers;
+                var data = joinVectors(config.inputvecs, bestAnswers);
+
+                if (config.graphType === "2d") {
+                    var container = "graph";
+                    renderFunction2D(data, container, "green", false);
+                } else {
+                    var container = "current3d";
+                    render3d(data, container);
+                }
             }
             if (error <= config.errorExpectation) {
                 done = true;
@@ -255,8 +356,8 @@ function finishExperiment(generation, config, correctAnswers, bestAnswers, bestG
     config.container.innerHTML += "<p> Result: " + bestGenome + "</p>";
     //config.container.innerHTML += "<p> output Vec  : " + vecToStr(bestAnswers) + "</p>";
     //config.container.innerHTML += "<p> Expected Vec: " + vecToStr(correctAnswers) + "</p>";
-    config.container.innerHTML += "<p> Min Error = " + minError + "</p>";
-    config.container.innerHTML += "<p> Generation = " + generation + "</p>";
+    config.container.innerHTML += "<p> Error = " + minError + "</p>";
+    //config.container.innerHTML += "<p> Generation = " + generation + "</p>";
 
     var table = "";
     table += "<table class='resultTable'>";
@@ -276,7 +377,7 @@ function finishExperiment(generation, config, correctAnswers, bestAnswers, bestG
                 "</td></tr>";
     }
     config.container.innerHTML += table + "</table>";
-
+    showInputs();
 
 
 
@@ -285,7 +386,7 @@ function finishExperiment(generation, config, correctAnswers, bestAnswers, bestG
 function runExperiment(config) {
     //console.log(config.inputNum);
 
-    var obj = initNEATPool(config.inputNum, 1, 50, config.maxHiddenNeurons);
+    var obj = initNEATPool(config.inputNum, 1, config.population, config.maxHiddenNeurons);
 
     config.container.innerHTML = "";
     config.container.innerHTML += "<p> Experiment with function " + config.expFunction.name + "</p>";
@@ -323,10 +424,15 @@ function runExperiment(config) {
         }
 
     }
-    var data = joinVectors(config.inputvecs, correctAnswers, true);
-    var container = "ideagraph";
-    renderFunction(data, container, "red");
+    var data = joinVectors(config.inputvecs, correctAnswers);
 
+    if (config.graphType === "2d") {
+        var container = "ideagraph";
+        renderFunction2D(data, container, "red");
+    } else {
+        var container = "idea3d";
+        render3d(data, container);
+    }
     experimentLoop(0, config, obj.pool, correctAnswers, finishExperiment);
 
 

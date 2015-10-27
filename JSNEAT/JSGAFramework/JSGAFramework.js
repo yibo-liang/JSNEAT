@@ -4,6 +4,7 @@ var ageSignificance = 1.5;
 
 var speciationThreshold = 1;
 
+var maxStaleness = 30;
 
 var minSpecies = 5;
 //helper function, 
@@ -80,6 +81,7 @@ var Genome = function (pool) {
     this.chromosomes = {};
     this.fitness = 0;
     this.adJustedFitness = 0;
+    this.log = "LOG: \n";
 };
 Genome.prototype.copy = function () {
     var copy = new Genome();
@@ -88,7 +90,6 @@ Genome.prototype.copy = function () {
         if (this.chromosomes.hasOwnProperty(i))
             copy.chromosomes[i] = this.chromosomes[i].copy();
     }
-
     for (var i in this.properties) {
         if (this.properties.hasOwnProperty(i)) {
             if (typeof this.properties[i].copy === "undefined") {
@@ -107,10 +108,12 @@ var chromosomeOperator = function (crossoverOperator, mutationOperator) {
     this.mutateOperator = mutationOperator;
 };
 
+var csid = 0;
 //evaluator : evaluate this single chromosome to the phenotype corresponding to it
 var Chromesome = function (genome, name, evaluator, chromosomeOperator, deltaFunction, deltaWeight) {
     this.genome = genome;
     this.genes = [];
+    this.id = csid++;
     this.name = name;
     this.chromosomeOperator = chromosomeOperator;
 
@@ -129,6 +132,8 @@ Chromesome.prototype.copy = function () {
     copy.deltaFunction = this.deltaFunction;
     copy.deltaWeight = this.deltaWeight;
     copy.genome = this.genome;
+    copy.id = csid++;
+    copy.genome.log = this.genome.log + "chromosome id=" + copy.id + " copied once from " + this.id + "\n";
     copy.name = this.name;
 
     //console.log("copy:", copy, "this", this);
@@ -227,7 +232,6 @@ function cullSpecies(pool, cutToOne) {
     }
 }
 
-var StaleSpecies = 15;
 function removeStaleSpecies(pool) {
 
     if (pool.species.length <= minSpecies) {
@@ -249,7 +253,7 @@ function removeStaleSpecies(pool) {
         } else {
             species.staleness++;
         }
-        if (species.staleness < StaleSpecies || species.topFitness >= pool.maxFitness) {// 
+        if (species.staleness < maxStaleness || species.topFitness >= pool.maxFitness) {// 
             survived.push(species);
 
         }
@@ -315,6 +319,8 @@ function crossoverChromesomes(g1, g2, genome) {
 
             if (crossover1 === crossover2) {
                 var result = crossover1(c1, c2);
+                genome.log += "created from crossover, p1=" + g1.chromosomes["NEAT"].id + ", p2=" + g2.chromosomes["NEAT"].id + "\n";
+
                 result.genome = genome;
                 newChromesomes[chromosome] = result;
             } else {
@@ -335,7 +341,7 @@ function mutateChromesomes(g) {
             var mutate = c.chromosomeOperator.mutateOperator;
             // console.log(g, c, mutate);
             var result = mutate(c);
-            result.genome = g;
+            //result.genome = g;
             newChromesomes[chromosome] = result;
         }
     }
@@ -377,15 +383,20 @@ function breedChild(pool, species, potentialAdoptSpecies) {
         if (Math.random() < pool.AdoptionChanche) {
             g = select(potentialAdoptSpecies.genomes);
 
-            child = g.copy();
+            child = g;
         } else {
             //console.log(select, pool);
             g = select(species.genomes);
-            child = g.copy();
+            child = g;
         }
     }
     //console.log(child);
     child.chromosomes = mutateChromesomes(child);
+    for (var i in child.chromosomes) {
+        if (child.chromosomes.hasOwnProperty(i)) {
+            child.chromosomes[i].genome = child;
+        }
+    }
     //console.log("newchild .c =", child.chromosomes);
     return child;
 }

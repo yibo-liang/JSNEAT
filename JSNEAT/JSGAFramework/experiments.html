@@ -5,10 +5,15 @@
         <title>Experiments</title>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+        <script type="text/javascript" src='3dPlot/SurfacePlot.js'></script>
+        <script type="text/javascript" src='3dPlot/ColourGradient.js'></script>
+        <script type="text/javascript" src="http://www.google.com/jsapi"></script>
+
         <script src="JSGAFramework.js"></script>
         <script src="NEATimp.js"></script>
 
-        <script src="http://d3js.org/d3.v3.min.js"></script>
+        <script src="d3.v3.js"></script>
         <script src="experiments.js"></script>
         <style>
             div.result{
@@ -21,22 +26,75 @@
         </style>
     </head>
     <body>
+        <script>
+            function hideInputs() {
+                document.getElementById("buttons").style.display = 'none';
+                var d1 = document.getElementById("graph2d");
+                var d2 = document.getElementById("graph3d");
+                d1.style.pointerEvents = 'none';
+                d2.style.pointerEvents = 'none';
+            }
+            function showInputs() {
+                document.getElementById("buttons").style.display = 'block';
+                var d1 = document.getElementById("graph2d");
+                var d2 = document.getElementById("graph3d");
+                d1.style.pointerEvents = 'auto';
+                d2.style.pointerEvents = 'auto';
+            }
 
+            function show2d() {
+                document.getElementById("graph2d").style.display = 'block';
+                document.getElementById("graph3d").style.display = 'none';
+
+            }
+
+            function show3d() {
+                document.getElementById("graph2d").style.display = 'none';
+                document.getElementById("graph3d").style.display = 'block';
+
+            }
+        </script>
         <div id="buttons">
-            <input type="button" onclick="runExperiment(config1);" value="xor" />
+            <input type="button" onclick="hideInputs();
+                    show3d();
+                    runExperiment(config1);" value="xor" />
 
-            <input type="button" onclick="runExperiment(config2);" value="linear" />
+            <input type="button" onclick="hideInputs();
+                    show2d();
+                    runExperiment(config2);" value="linear" />
 
-            <input type="button" onclick="runExperiment(config3);" value="cubic" />
+            <input type="button" onclick="hideInputs();
+                    show2d();
+                    runExperiment(config3);" value="cubic" />
 
-            <input type="button" onclick="runExperiment(config4);" value="sine" />
+            <input type="button" onclick="hideInputs();
+                    show2d();
+                    runExperiment(config4);" value="sine" />
 
-            <input type="button" onclick="runExperiment(config5);" value="tanh" />
+            <input type="button" onclick="hideInputs();
+                    show2d();
+                    runExperiment(config5);" value="tanh" />
 
-            <input type="button" onclick="runExperiment(config6);" value="complex" />
+            <input type="button" onclick="hideInputs();
+                    show3d();
+                    runExperiment(config6);" value="complex" />
+
+            <input type="button" onclick="hideInputs();
+                    show3d();
+                    runExperiment(config7);" value="exp3d" />
+
 
         </div>
-        <div style="position: relative; height: 500px">
+        <div id="graph3d"  style="position: relative; left: 0px; height: 500px">
+            <div id='current3d' style="position: absolute; left: 0px;">
+                <!-- SurfacePlot goes here... -->
+            </div>
+            <div id='idea3d'  style="position: absolute; left: 500px;">
+                <!-- SurfacePlot2 goes here... -->
+
+            </div>
+        </div>
+        <div id="graph2d" style="position: relative; height: 500px">
             <div style="position: absolute; top:0px">
                 <svg id="graph"  width="1000" height="500" ></svg>
             </div>
@@ -50,7 +108,7 @@
                 var obj = initNEATPool(1, 1, 1);
                 var bg1 = basicNEATGenome(obj.pool, 1, 1);
                 var bg2 = basicNEATGenome(obj.pool, 1, 1);
-                console.log(bg1, bg2)
+                console.log(bg1, bg2);
                 var i = isSameSpecies(obj.pool, bg1, bg2, 1);
                 console.log(i);
 
@@ -85,7 +143,7 @@
 
             function vecPairRange(min1, max1, min2, max2, step1, step2) {
                 var result = [];
-                for (var i = min1; i <= max1; i += step1) {
+                for (var i = min1; i < max1; i += step1) {
                     for (var j = min2; j < max2; j += step2) {
                         result.push([i, j]);
                     }
@@ -93,7 +151,7 @@
                 return result;
             }
 
-            var vec2 = vecRange(-3, 3, 0.1);
+            var vec2 = vecRange(-5, 5, 0.25);
 
             function linear(x) {
                 return x;
@@ -103,7 +161,7 @@
                 return x * x * x;
             }
 
-            var vec4 = vecRange(-Math.PI, Math.PI, 0.1);
+            var vec4 = vecRange(-2 * Math.PI, 2 * Math.PI, Math.PI / 10);
 
             function sine(x) {
                 return Math.sin(x);
@@ -113,7 +171,7 @@
                 return (Math.exp(2 * x) - 1) / (Math.exp(2 * x) + 1);
             }
 
-            vec3 = vecPairRange(-2, 2, -2, 2, 0.1, 0.1);
+            vec3 = vecPairRange(-2, 2, -2, 2, 0.4, 0.4);
             //console.log(vec1, vec2, vec3);
             function complex(input) {
                 var x1 = input[0];
@@ -126,15 +184,23 @@
 
             }
 
+            function exp2(input) {
+                var x1 = input[0];
+                var x2 = input[1];
+
+                return Math.exp(x1) - Math.exp(x2);
+            }
+
             var container = document.getElementById("resultContainer");
-            var config1 = new ExperimentConfiguration(2, vec1, xor, true, 0, 1000, 5, container);
-            var config2 = new ExperimentConfiguration(1, vec2, linear, false, 0.001, 1000, 10, container);
-            var config3 = new ExperimentConfiguration(1, vec2, cubic, false, 0.01, 1000, 13, container);
+            var config1 = new ExperimentConfiguration(2, vec1, xor, true, 0, 1000, 5, container, "3d");
+            var config2 = new ExperimentConfiguration(1, vec2, linear, false, 0.001, 1000, 5, container, "2d");
+            var config3 = new ExperimentConfiguration(1, vec2, cubic, false, 0.01, 1000, 10, container, "2d");
 
 
-            var config4 = new ExperimentConfiguration(1, vec4, sine, false, 0.01, 1000, 20, container);
-            var config5 = new ExperimentConfiguration(1, vec4, tanh, false, 0.0001, 500, 20, container);
-            var config6 = new ExperimentConfiguration(2, vec3, complex, false, 0.1, 500, 30, container);
+            var config4 = new ExperimentConfiguration(1, vec4, sine, false, 0.01, 1000, 20, container, "2d");
+            var config5 = new ExperimentConfiguration(1, vec4, tanh, false, 0.0001, 50, 20, container, "2d");
+            var config6 = (new ExperimentConfiguration(2, vec3, complex, false, 0.1, 1000, 25, container, "3d")).Population(25);
+            var config7 = (new ExperimentConfiguration(2, vec3, exp2, false, 0.1, 1000, 25, container, "3d")).Population(25);
 
 
         </script>
