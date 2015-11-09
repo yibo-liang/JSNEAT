@@ -3,6 +3,7 @@
 
 var useBias = true;
 
+var isMLP = false;
 var isNaiveLayered = false;
 var maxNeuronPerLayer = 6;
 var newLayerChance = 0.05;

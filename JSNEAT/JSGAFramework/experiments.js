@@ -239,16 +239,21 @@ ExperimentConfiguration.prototype.Population = function (n) {
 };
 
 
-
-function experimentLoop(currentGen, config, pool, correctAnswers, finishCallback) {
-
+var kfff = 0;
+function experimentLoop(currentGen, config, pool, correctAnswers, finishCallback, currentMinError) {
+    kfff++;
     var bestGenome = null;
 
     var done = false;
     var bestAnswers = [];
 
     var resultGenome;
-    var minError = 99999;
+    var minError;
+    if (!currentMinError) {
+        minError = 99999;
+    } else {
+        minError = currentMinError;
+    }
     config.container.innerHTML = "Generation " + currentGen + "/" + config.maxGeneration;
 
     config.container.innerHTML += "<p>best fitness = " + pool.maxFitness + "</p>";
@@ -298,7 +303,7 @@ function experimentLoop(currentGen, config, pool, correctAnswers, finishCallback
                 return 2 * (1 - 1 / (Math.exp(-x * 2) + 1));
             };
 
-            genome.fitness = reverseSigmoid(error) ;
+            genome.fitness = reverseSigmoid(error);
             //genome.fitness = 1 / (error + 0.01);
             if (genome.fitness > pool.maxFitness) {
                 pool.maxFitness = genome.fitness;
@@ -335,8 +340,9 @@ function experimentLoop(currentGen, config, pool, correctAnswers, finishCallback
 
     if (!done && currentGen < config.maxGeneration) {
         setTimeout(function () {
+            console.log("minError=", minError, "k=" + kfff);
             nextGeneration(pool);
-            experimentLoop(currentGen + 1, config, pool, correctAnswers, finishCallback);
+            experimentLoop(currentGen + 1, config, pool, correctAnswers, finishCallback, minError);
         }, 0);
     } else {
         finishCallback(currentGen, config, correctAnswers, bestAnswers, bestGenome, minError);
