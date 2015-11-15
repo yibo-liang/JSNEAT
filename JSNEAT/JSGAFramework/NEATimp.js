@@ -3,18 +3,21 @@
 
 var useBias = true;
 
-var isMLP = false;
+var isMLP = true;
 var isNaiveLayered = false;
 var maxNeuronPerLayer = 6;
+var maxLayer = 3;
+window.maxLayer = maxLayer;
 var newLayerChance = 0.05;
 
 var isRecurrent = false;
 
 
 var CrossoverChance = 0.75;
-var AdoptionChanche = 0.03;
+var AdoptionChanche = 0.00;
 
-var PointMutationChance = 0.35;
+var PointMutationChance = 0.3;
+
 var LinkMutationChance = 1.5;
 var NodeMutationChance = 0.6;
 var BiasMutationChance = 0.20;
@@ -22,8 +25,12 @@ var BiasMutationChance = 0.20;
 var DisableMutationChance = 0.4;
 var EnableMutationChance = 0.2;
 
-var PerturbStep = 0.1;
-var PerturbChance = 0.80;
+var MLPNewNodeChance = 0.02;
+var MLPNewLayerChance = 0.02;
+var MLPActivationMutateChance = 0.02;
+
+var PerturbStep = 0.15;
+var PerturbChance = 0.85;
 
 var PruningLinkChance = 0.003;
 var PruningNodeChance = 0.005;
@@ -50,6 +57,8 @@ var Gene = function () {
     this.weight = 0;
     this.enable = true;
     this.innovation = 0;
+    this.isOutNeuronLayerHolder = false;
+    this.isMutatingActivation = false;
 };
 
 Gene.prototype.copy = function () {
@@ -59,11 +68,40 @@ Gene.prototype.copy = function () {
     copy.weight = this.weight;
     copy.enable = this.enable;
     copy.innovation = this.innovation;
+    copy.isOutNeuronLayerHolder = this.isOutNeuronLayerHolder;
+    copy.isMutatingActivation = this.isMutatingActivation;
     return copy;
 };
 
+function identity(x) {
+    return x;
+}
+
 function sigmoid(x) {
-    return 1 / (1 + Math.exp(-4.9 * x));
+    return 1 / (1 + Math.exp(-1 * x));
+}
+
+function NullActivation(x) {
+    return 0;
+}
+
+function tanh(x) {
+    return (Math.exp(2 * x) - 1) / (Math.exp(2 * x) + 1);
+}
+
+function cosine(x) {
+    return Math.cos(x);
+}
+
+function gaussian(x) {
+    return Math.exp(-(x * x) / 2);
+}
+
+
+function randomActivation() {
+    var activationFuncs = [sigmoid, NullActivation, tanh, cosine, gaussian];
+    var i = RandomIntInclusive(0, activationFuncs.length - 1);
+    return activationFuncs[i];
 }
 
 var Neuron = function () {
@@ -71,8 +109,22 @@ var Neuron = function () {
     this.outcomingLinks = [];
     this.cValue = 0;
     this.nValue = 0;
-    this.thresholdFunction = sigmoid;
+    this.activationFunction = randomActivation();
 };
+Neuron.prototype.copy = function () {
+    var copy = new Neuron();
+    for (var i = 0; i < this.incomingLinks.length; i++) {
+        copy.incomingLinks.push(this.incomingLinks[i].copy());
+    }
+    for (var i = 0; i < this.outcomingLinks.length; i++) {
+        copy.outcomingLinks.push(this.outcomingLinks[i].copy());
+    }
+    copy.cValue = this.cValue;
+    copy.nValue = this.nValue;
+    copy.activationFunction = this.activationFunction;
+    return copy;
+}
+
 
 var Network = function (chromosome) {
     this.chromosome = chromosome;
@@ -80,11 +132,21 @@ var Network = function (chromosome) {
     this.indices = [];
 };
 Network.prototype.copy = function () {
-    return generateNN(this.chromosome);
+    var copy = new Network(null);
+    for (var i in this.neurons) {
+        if (this.neurons.hasOwnProperty(i)) {
+            copy.neurons[i] = this.neurons[i].copy();
+            copy.indices.push(i);
+        }
+    }
+    return copy;
+
 };
 
+
+
 function NeuronCompare(n1, n2) {
-    if (!isNaiveLayered) {
+    if (!isNaiveLayered && !isMLP) {
         var getType = function (i) {
             return i.substring(0, 1);
         };
@@ -118,7 +180,9 @@ function NeuronCompare(n1, n2) {
             return vec[0];
         };
         var getNumber = function (vec) {
-            return vec[vec.length - 1];
+            if (vec[0] === "B")
+                return 0;
+            return +vec[vec.length - 1];
         };
         var getLayer = function (vec) {
             var t = getType(vec);
@@ -138,7 +202,7 @@ function NeuronCompare(n1, n2) {
                 return 0;
             }
             if (t === "B") {
-                return 10000;
+                return 1000;
             }
             if (t === "H") {
                 return 20000;
@@ -150,8 +214,13 @@ function NeuronCompare(n1, n2) {
 
         var typea = getType(n1vec);
         var typeb = getType(n2vec);
-        var na = getNumber(n1vec) + typeToNum(typea) + getLayer(n1vec);
-        var nb = getNumber(n2vec) + typeToNum(typeb) + getLayer(n2vec);
+        var na = getNumber(n1vec) + typeToNum(typea) + getLayer(n1vec) * 100;
+        var nb = getNumber(n2vec) + typeToNum(typeb) + getLayer(n2vec) * 100;
+        //console.log(n1, n2);
+        //console.log("na", na, "nb", nb)
+        //console.log(n1vec, getNumber(n1vec), typeToNum(typea), getLayer(n1vec));
+        //console.log(n2vec, getNumber(n2vec), typeToNum(typeb), getLayer(n2vec));
+
         return na - nb;
 
     }
@@ -206,7 +275,7 @@ function generateNN(chromosome) {
     for (var i = 0; i < inputNeuronNum; i++) {
         var n = new Neuron();
         var index = "I" + i;
-        if (isNaiveLayered) {
+        if (isNaiveLayered || isMLP) {
             index = "I." + i;
         }
         network.neurons[index] = n;
@@ -215,7 +284,7 @@ function generateNN(chromosome) {
     for (var i = 0; i < outputNeuronNum; i++) {
         var n = new Neuron();
         var index = "O" + i;
-        if (isNaiveLayered) {
+        if (isNaiveLayered || isMLP) {
             index = "O." + i;
         }
         network.neurons[index] = n;
@@ -236,6 +305,13 @@ function generateNN(chromosome) {
             if (typeof network.neurons[gene.out] === "undefined") {
                 network.neurons[gene.out] = new Neuron();
                 network.indices.push(gene.out);
+
+            }
+            if (gene.isOutNeuronLayerHolder === true) {
+                network.neurons[gene.out].activationFunction = randomActivation();//identity;
+            } else if (gene.isMutatingActivation) {
+                network.neurons[gene.out].activationFunction = randomActivation();
+                gene.isMutatingActivation = false;
             }
             var neuron_i = gene.out;
             var neuron = network.neurons[neuron_i];
@@ -281,7 +357,7 @@ function evaluateNeuroNetwork(genome, network, inputArray, isDebuging) {
 
 
     for (var i = 0; i < inputs; i++) {
-        if (!isNaiveLayered) {
+        if (!isNaiveLayered && !isMLP) {
             network.neurons["I" + i].cValue = inputVec[i];
         } else {
             network.neurons["I." + i].cValue = inputVec[i];
@@ -296,12 +372,15 @@ function evaluateNeuroNetwork(genome, network, inputArray, isDebuging) {
         }
     }
     neuronList.sort(NeuronCompare);
-    //console.log(neuronList);
+    //if (neuronList.length >= 5) {
+    //    console.log(neuronList);
+    //    die();
+    //}
 
     var debugstr = "";
     for (var i in neuronList) {
         var ni = neuronList[i];
-        if (ni === "B")
+        if (ni === "B" || ni.substring(0, 1) === "I")
             continue
         var neuron = network.neurons[ni];
 
@@ -317,14 +396,10 @@ function evaluateNeuroNetwork(genome, network, inputArray, isDebuging) {
             debugstr += "value += n[" + incoming.in + "](" + other.cValue + ")*" + incoming.weight + "\n";
             //console.log("sum=",sum);
         }
-        debugstr += "value=" + sum + ", sigmoid(value)=" + neuron.thresholdFunction(sum) + "\n";
+        debugstr += "value=" + sum + ", " + neuron.activationFunction.name + "(value)=" + neuron.activationFunction(sum) + "\n";
         if (neuron.incomingLinks.length > 0) {
-            if (typeof isDebuging !== "undefined" && isDebuging) {
-                console.log(debugstr);
-                console.log(network);
 
-            }
-            var temp = neuron.thresholdFunction(sum);
+            var temp = neuron.activationFunction(sum);
             //if recurrent network is used, then save the new value for next iteration,
             //otherwise, save the new value for current iteration
             if (isRecurrent === true) {
@@ -339,6 +414,12 @@ function evaluateNeuroNetwork(genome, network, inputArray, isDebuging) {
 
     }
 
+    if (typeof isDebuging !== "undefined" && isDebuging) {
+
+        console.log(debugstr);
+        //console.log(network);
+
+    }
     if (isRecurrent === true)
         for (var i in network.neurons) {
             if (network.neurons.hasOwnProperty(i)) {
@@ -351,10 +432,11 @@ function evaluateNeuroNetwork(genome, network, inputArray, isDebuging) {
 
     var outputs = genome.properties["outputs"];
     for (var i = 0; i < outputs; i++) {
-        if (!isNaiveLayered) {
-            var v = network.neurons["O" + i].cValue;
+        var v;
+        if (!isNaiveLayered && !isMLP) {
+            v = network.neurons["O" + i].cValue;
         } else {
-            var v = network.neurons["O." + i].cValue;
+            v = network.neurons["O." + i].cValue;
         }
         //if (v > 0) {
         //    outputArray.push(true);
@@ -517,8 +599,9 @@ function pointMutate(chromosome) {
         var gene = chromosome.genes[i];
         if (Math.random() < chance) {
             gene.weight = gene.weight + Math.random() * step * 2 - step;
+
         } else {
-            gene.weight = Math.random() * step * 2 - 1;
+            gene.weight = Math.random() * step * 8 - 4;
         }
     }
 
@@ -602,7 +685,7 @@ function linkMutation(chromosome, forceBias) {
     }
     newLink.innovation = newInnovation(chromosome.genome.pool);
     //console.log("new link=", newLink)
-    newLink.weight = Math.random() * 4 - 2;
+    newLink.weight = Math.random() * 10 - 5;
     chromosome.genes.push(newLink);
 }
 
@@ -792,49 +875,267 @@ function deleteDisabledLinkMutate(chromosome) {
 
 }
 
+function MLPActivationMutate(chromosome) {
+    var l = chromosome.genes.length - 1;
+    var i = RandomIntInclusive(0, l);
+    chromosome.genes[i].isMutatingActivation = true;
+}
+
+
+function MLPNewLayerMutate(chromosome) {
+    if (!isMLP) {
+        return;
+    }
+    var genome = chromosome.genome;
+    var oldMaxHiddenLayerNum = genome.properties["hiddenLayers"];
+    var newLayerNum = oldMaxHiddenLayerNum + 1;
+
+    if (newLayerNum > maxLayer)
+        return;
+
+    if (genome.properties["hiddenNeurons"] + 1 > maxLayer * maxNeuronPerLayer)
+        return;
+
+    var outputs = genome.properties["outputs"];
+    var newNeuronNum = outputs;
+
+
+    /* debug 
+     if (newLayerNum > 1) {
+     console.log("----------------------------------------------")
+     console.log("before mutate");
+     for (var i = 0; i < chromosome.genes.length; i++) {
+     var gene = chromosome.genes[i];
+     //console.log(gene.in, "->", gene.out, "w=" + gene.weight);
+     }
+     
+     var tm = generateNN(chromosome);
+     var result = evaluateNeuroNetwork(chromosome.genome, tm, [1], true);
+     console.log("result=", result)
+     }
+     --*/
+    //generate new neurons' names
+    var newNeuronNames = [];
+    for (var i = 0; i < newNeuronNum; i++) {
+        newNeuronNames.push("H." + newLayerNum + "." + (i + 1));
+    }
+
+    //reconnect all link to output layer to new Layer, 
+    for (var n = 0; n < outputs; n++) {
+        var outputNeuronName = "O." + (n);
+        for (var i = 0; i < chromosome.genes.length; i++) {
+            var gene = chromosome.genes[i];
+            if (gene.out === outputNeuronName) {
+                gene.out = newNeuronNames[n];
+                if (newLayerNum > 1)
+                    gene.isOutNeuronLayerHolder = true;
+            }
+            //console.log("reconnected gene", gene)
+        }
+    }
+
+    if (useBias) {
+        for (var i = 0; i < newNeuronNum; i++) {
+            var biaslink = new Gene();
+            biaslink.in = "B";
+            biaslink.out = newNeuronNames[i];
+            biaslink.innovation = newInnovation(genome.pool);
+            biaslink.weight = Math.random() * 10 - 5;
+            chromosome.genes.push(biaslink);
+        }
+    }
+
+    //and connect new Layer to ouput
+    for (var n = 0; n < outputs; n++) {
+        for (var i = 0; i < newNeuronNum; i++) {
+            var newGene = new Gene();
+            newGene.in = newNeuronNames[i];
+            newGene.out = "O." + n;
+            newGene.innovation = newInnovation(genome.pool);
+            if (n === i) {
+                newGene.weight = 1;
+            } else {
+                newGene.weight = 0;
+            }
+            newGene.enable = true;
+            chromosome.genes.push(newGene);
+        }
+    }
+
+
+    genome.properties["hiddenLayers"] += 1;
+    genome.properties["hiddenNeurons"] += outputs;
+    genome.properties["NeuronNumberAtLayer"][newLayerNum] = outputs;
+    /*
+     
+     if (newLayerNum > 1) {
+     console.log("after mutate");
+     for (var i = 0; i < chromosome.genes.length; i++) {
+     var gene = chromosome.genes[i];
+     //console.log(gene.in, "->", gene.out, "w=" + gene.weight);
+     }
+     
+     var tm = generateNN(chromosome);
+     var result = evaluateNeuroNetwork(chromosome.genome, tm, [1], true);
+     console.log("result=", result)
+     // die();
+     }*/
+}
+
+function MLPNewNodeMutate(chromosome) {
+
+    if (!isMLP) {
+        return;
+    }
+    var genome = chromosome.genome;
+    var oldMaxHiddenLayerNum = genome.properties["hiddenLayers"];
+    var inputs = genome.properties["inputs"];
+    var outputs = genome.properties["outputs"];
+
+
+
+    var selectedLayer = Math.floor(Math.random() * oldMaxHiddenLayerNum) + 1;
+    var newNeuronIndex = genome.properties["NeuronNumberAtLayer"][selectedLayer] + 1;
+    if (newNeuronIndex > maxNeuronPerLayer) {
+        return;
+    }
+
+    if (genome.properties["hiddenNeurons"] + 1 > maxLayer * maxNeuronPerLayer)
+        return;
+
+    var newNodeNmae = "H." + selectedLayer + "." + newNeuronIndex;
+
+
+    if (oldMaxHiddenLayerNum === 0) {
+        //does not have a hidden layer, mutate exit
+        return;
+    }
+
+
+    var newLinksIn = [];
+    if (selectedLayer === 1) {
+        for (var i = 0; i < inputs; i++) {
+            newLinksIn.push("I." + i);
+        }
+
+    } else {
+        for (var i = 0; i < genome.properties["NeuronNumberAtLayer"][selectedLayer - 1]; i++) {
+            newLinksIn.push("H." + (selectedLayer - 1) + "." + (i + 1));
+        }
+    }
+    if (useBias) {
+        newLinksIn.push("B");
+    }
+
+
+    var newLinksOut = [];
+    if (selectedLayer === oldMaxHiddenLayerNum) {
+        for (var i = 0; i < outputs; i++) {
+            newLinksOut.push("O." + i);
+        }
+    } else {
+        for (var i = 0; i < genome.properties["NeuronNumberAtLayer"][selectedLayer + 1]; i++) {
+            newLinksOut.push("H." + (selectedLayer + 1) + "." + (i + 1));
+        }
+    }
+
+    var randomWeight = function () {
+        return Math.random() * 10 - 5;
+    };
+
+    //console.log("new node with name" + newNodeNmae, genome.properties);
+    for (var i = 0; i < newLinksIn.length; i++) {
+        var newGene = new Gene();
+        newGene.weight = randomWeight();
+        newGene.in = newLinksIn[i];
+        newGene.out = newNodeNmae;
+        newGene.innovation = newInnovation(chromosome.genome.pool);
+        chromosome.genes.push(newGene);
+    }
+
+
+    for (var i = 0; i < newLinksOut.length; i++) {
+        var newGene = new Gene();
+        newGene.weight = randomWeight();
+        newGene.in = newNodeNmae;
+        newGene.out = newLinksOut[i];
+        newGene.innovation = newInnovation(chromosome.genome.pool);
+        chromosome.genes.push(newGene);
+    }
+
+    genome.properties["hiddenNeurons"] += 1;
+    genome.properties["NeuronNumberAtLayer"][selectedLayer] += 1;
+}
+
+
 var NEATmutate = function (chromosome) {
+
     if (Math.random() < chromosome.genome.properties["PointMutationChance"]) {
         pointMutate(chromosome);
+
     }
     var genome = chromosome.genome;
 
-    var p = genome.properties["LinkMutationChance"];
-    while (p > 0) {
-        if (Math.random() < p) {
-            linkMutation(chromosome, false);
+    if (!isMLP) {
+        var p = genome.properties["LinkMutationChance"];
+        while (p > 0) {
+            if (Math.random() < p) {
+                linkMutation(chromosome, false);
+            }
+            p -= 1;
         }
-        p -= 1;
-    }
 
-    var p = genome.properties["BiasMutationChance"];
-    while (p > 0) {
-        if (Math.random() < p) {
-            linkMutation(chromosome, true);
+        var p = genome.properties["BiasMutationChance"];
+        while (p > 0) {
+            if (Math.random() < p) {
+                linkMutation(chromosome, true);
+            }
+            p -= 1;
         }
-        p -= 1;
-    }
 
-    var p = genome.properties["NodeMutationChance"];
-    while (p > 0) {
-        if (Math.random() < p) {
-            nodeMutation(chromosome);
+        var p = genome.properties["NodeMutationChance"];
+        while (p > 0) {
+            if (Math.random() < p) {
+                nodeMutation(chromosome);
+            }
+            p -= 1;
         }
-        p -= 1;
-    }
 
-    var p = genome.properties["EnableMutationChance"];
-    while (p > 0) {
-        if (Math.random() < p) {
-            enableDisableMutate(chromosome, true);
+        var p = genome.properties["EnableMutationChance"];
+        while (p > 0) {
+            if (Math.random() < p) {
+                enableDisableMutate(chromosome, true);
+            }
+            p -= 1;
         }
-        p -= 1;
-    }
-    var p = genome.properties["DisableMutationChance"];
-    while (p > 0) {
-        if (Math.random() < p) {
-            enableDisableMutate(chromosome, false);
+        var p = genome.properties["DisableMutationChance"];
+        while (p > 0) {
+            if (Math.random() < p) {
+                enableDisableMutate(chromosome, false);
+            }
+            p -= 1;
         }
-        p -= 1;
+
+    } else {
+
+        var p = genome.properties["MLPNewLayerChance"];
+        while (p > 0) {
+            if (Math.random() < p) {
+                //console.log("mutate.MLPNewNodeMutate");
+                MLPNewNodeMutate(chromosome);
+            }
+            p -= 1;
+        }
+
+        var p = genome.properties["MLPNewLayerChance"];
+        while (p > 0) {
+            if (Math.random() < p) {
+                // console.log("mutate.MLPNewLayerMutate");
+
+                MLPNewLayerMutate(chromosome);
+            }
+            p -= 1;
+        }
     }
     generateNN(chromosome);
     return chromosome;
@@ -842,17 +1143,90 @@ var NEATmutate = function (chromosome) {
 
 };
 
+
+function DeltaNeurons(chromosome1, chromosome2) {
+    var g1 = chromosome1.genome;
+    var g2 = chromosome2.genome;
+    var hn1 = g1.properties["NeuronNumberAtLayer"];
+    var hn2 = g2.properties["NeuronNumberAtLayer"];
+    //console.log(hn1,hn2);
+    var sum = 0;
+    for (var i in hn1) {
+        if (hn1.hasOwnProperty(i)) {
+            //console.log("i=", i)
+            var n1 = hn1[i];
+            var n2 = hn2[i];
+
+            if (typeof n2 === "undefined" && n1 !== null) {
+                sum += n1;
+                //console.log("d layer +"+n1);
+            } else {
+                if (n1 !== null && n2 !== null)
+                    sum += Math.abs(n1 - n2);
+                // console.log("d neuron n +1")
+
+
+            }
+        }
+    }
+    // if (sum >= 1) {
+
+    //return sum;
+    //}
+    var getLayerName = function (d) {
+        return d.substring(0, 1);
+    }
+    var ns1 = g1.properties["NeuroNetwork"];
+    var ns2 = g2.properties["NeuroNetwork"];
+    for (var i in ns1.neurons) {
+        if (ns1.neurons.hasOwnProperty(i)) {
+            var n = getLayerName(i)
+            if (n === "I" || n === "B") {
+                continue;
+            }
+
+            if (typeof ns2.neurons[i] !== "undefined") {
+                n1 = ns1.neurons[i];
+                n2 = ns2.neurons[i];
+
+                if (n1.activationFunction !== n2.activationFunction) {
+                    sum += 0;
+                    // console.log("d fun +1");
+                }
+            }
+        }
+    }
+
+    /*
+     console.log("=====================================")
+     console.log(sum)
+     console.log(ns1, ns2)
+     
+     */
+    //die()
+    if (sum > 1) {
+        //console.log(ns1, ns2, sum)
+        //die()
+    }
+    return sum;
+
+
+}
+
 var NEAToperator = new chromosomeOperator(NEATcrossover, NEATmutate);
 var NEATdeltaWeight = 1;
 
 
 function NEATdeltaFunction(chromosome1, chromosome2) {
-    var DeltaDisjoint = 1.5;
-    var DeltaWeights = 0.6;
+    var DeltaDisjoint = 0;
+    var DeltaWeights = 0.5;
+    var DeltaNeuron = 1;
+
     var dd = DeltaDisjoint * disjoint(chromosome1.genes, chromosome2.genes);
     var dw = DeltaWeights * weights(chromosome1.genes, chromosome2.genes);
-    //console.log(dd, dw);
-    return dd + dw;
+    var dn = DeltaNeuron * DeltaNeurons(chromosome1, chromosome2);
+    //console.log(dd, dw, dn);
+    return dd + dw + dn;
 }
 
 function baseNEATChromesome(genome, initInputs, initOutputs, maxHN) {
@@ -875,6 +1249,8 @@ function baseNEATChromesome(genome, initInputs, initOutputs, maxHN) {
     genome.properties["DisableMutationChance"] = DisableMutationChance;
     genome.properties["EnableMutationChance"] = EnableMutationChance;
 
+    genome.properties["MLPNewNodeChance"] = MLPNewNodeChance;
+    genome.properties["MLPNewLayerChance"] = MLPNewLayerChance;
 
 
     //var inputs = genome.properties["inputs"];
@@ -889,23 +1265,26 @@ function baseNEATChromesome(genome, initInputs, initOutputs, maxHN) {
             NEATdeltaWeight
             );
 
-    for (var i = 0; i <= initInputs; i++) {
-        for (var j = 0; j < initOutputs; j++) {
-            var gene = new Gene();
-            var link_in;
-            var link_out;
-            if (i === initInputs) {
-                link_in = "B";
-            } else {
-                link_in = "I." + i;
+    var localInnovation = 0;
+    if (isMLP)
+        for (var i = 0; i <= initInputs; i++) {
+            for (var j = 0; j < initOutputs; j++) {
+                var gene = new Gene();
+                var link_in;
+                var link_out;
+                if (i === initInputs) {
+                    link_in = "B";
+                } else {
+                    link_in = "I." + i;
+                }
+                link_out = "O." + j;
+                gene.in = link_in;
+                gene.out = link_out;
+                gene.innovation = localInnovation++;
+                gene.weight = Math.random() * 6 - 3;
+                result.genes.push(gene);
             }
-            link_out = "O." + j;
-            gene.in = link_in;
-            gene.out = link_out;
-            gene.weight = Math.random() * 2 - 1;
-            //result.genes.push(gene);
         }
-    }
 
     return result;
 }
@@ -963,6 +1342,10 @@ function initNEATPool(inputn, outputn, population, maxHN) {
         var chromosome = baseNEATChromesome(basicGenome, inputn, outputn, maxHN);
         basicGenome.chromosomes["NEAT"] = chromosome;
         basicGenome.properties["NeuroNetwork"] = generateNN(chromosome);
+        pool.crossoverEnabled = !isMLP;
+        pool.mutateEnabled = true;
+
+
         chromosome.chromosomeOperator.mutateOperator(chromosome);
         addToSpecies(basicGenome, pool);
         init_genomes.push(basicGenome);

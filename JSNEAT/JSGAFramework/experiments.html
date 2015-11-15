@@ -14,6 +14,8 @@
         <script src="NEATimp.js"></script>
 
         <script src="d3.v3.js"></script>
+        <script src="visualiseNeuroNet.js"></script>
+
         <script src="experiments.js"></script>
         <style>
             div.result{
@@ -57,31 +59,31 @@
         <div id="buttons">
             <input type="button" onclick="hideInputs();
                     show3d();
-                    runExperiment(config1);" value="xor" />
+                    runExperiment(config1());" value="xor" />
 
             <input type="button" onclick="hideInputs();
                     show2d();
-                    runExperiment(config2);" value="linear" />
+                    runExperiment(config2());" value="linear" />
 
             <input type="button" onclick="hideInputs();
                     show2d();
-                    runExperiment(config3);" value="cubic" />
+                    runExperiment(config3());" value="cubic" />
 
             <input type="button" onclick="hideInputs();
                     show2d();
-                    runExperiment(config4);" value="sine" />
+                    runExperiment(config4());" value="sine" />
 
             <input type="button" onclick="hideInputs();
                     show2d();
-                    runExperiment(config5);" value="tanh" />
+                    runExperiment(config5());" value="tanh" />
 
             <input type="button" onclick="hideInputs();
                     show3d();
-                    runExperiment(config6);" value="complex" />
+                    runExperiment(config6());" value="complex" />
 
             <input type="button" onclick="hideInputs();
                     show3d();
-                    runExperiment(config7);" value="exp3d" />
+                    runExperiment(config7());" value="exp3d" />
 
 
         </div>
@@ -102,8 +104,95 @@
                 <svg id="ideagraph"  width="1000" height="500"></svg>
             </div>
         </div>
+        <div id="net"></div>
         <div class="result" id="resultContainer"></div>
         <script>
+
+            // console.log(["O.0","H.1.1","I.0","H.1.2","B"].sort(NeuronCompare));
+            // die()
+
+
+
+            function functionFromData(inputStore, functionName, filepath) {
+                d3.text(filepath, function (error, textString) {
+                    var data = d3.tsv.parseRows(textString);
+                    //console.log(data);
+                    window[inputStore] = function (data) {
+                        var result = [];
+                        var inputn = data[0].length - 1;
+                        for (var i = 0; i < data.length; i++) {
+                            var input = [];
+                            for (var j = 0; j < inputn; j++) {
+                                input.push(+data[i][j]);
+                            }
+                            result.push(input);
+                        }
+                        return result;
+                    }(data);
+
+                    var res = function (inputs) {
+                        this.name = functionName;
+                        var inputn = inputs.length;
+                        this.data = data;
+                        if (inputn + 1 === this.data[0].length) {
+                            for (var i = 0; i < this.data.length; i++) {
+                                var matchInput = true;
+                                for (var j = 0; j < inputn; j++) {
+                                    matchInput = matchInput && (+inputs[j] === +this.data[i][j]);
+                                }
+                                if (matchInput) {
+                                    return this.data[i][inputn];
+                                }
+                            }
+                            die_error("input not in the range");
+                        } else {
+                            console.log(inputs)
+                            for (var i in inputs) {
+                                if (inputs.hasOwnProperty([i])) {
+                                    console.log(i, inputs[i])
+                                }
+                            }
+                            console.log(inputs, inputs.length, inputn + 1, this.data[0].length, this.data);
+                            die_error("input number does not match");
+                        }
+
+                    };
+                    var orginStr = res.toString();
+
+                    var newFuncStr = "function " + functionName + orginStr.substring(8);
+                    eval(newFuncStr);
+                    window[functionName] = eval(functionName);
+                    //console.log(window["linear2"].name)
+                    //console.log(functionName);
+                    //console.log("done", window[functionName]([-1]), window[inputStore])
+                });
+            }
+            var xorInputs;
+            var xor2;
+
+            var linearInputs;
+            var linear2;
+
+            var cubicInputs;
+            var cubic2;
+
+            var sineInputs;
+            var sine2;
+
+            var tanhInputs;
+            var tanh2;
+
+            var complexInputs;
+            var complex2;
+
+            functionFromData("xorInputs", "xor2", "testdata/2in_xor.txt");
+            functionFromData("linearInputs", "linear2", "testdata/1in_linear.txt");
+            functionFromData("cubicInputs", "cubic2", "testdata/1in_cubic.txt");
+            functionFromData("sineInputs", "sine2", "testdata/1in_sine.txt");
+            functionFromData("tanhInputs", "tanh2", "testdata/1in_tanh.txt");
+            functionFromData("complexInputs", "complex2", "testdata/2in_complex.txt");
+
+
             function t() {
                 var obj = initNEATPool(1, 1, 1);
                 var bg1 = basicNEATGenome(obj.pool, 1, 1);
@@ -151,7 +240,7 @@
                 return result;
             }
 
-            var vec2 = vecRange(-5, 5, 0.25);
+            var vec2 = vecRange(-1, 1, 0.02);
 
             function linear(x) {
                 return x;
@@ -171,7 +260,7 @@
                 return (Math.exp(2 * x) - 1) / (Math.exp(2 * x) + 1);
             }
 
-            vec3 = vecPairRange(-2, 2, -2, 2, 0.4, 0.4);
+            vec3 = vecPairRange(-1, 1, -1, 1, 0.2, 0.2);
             //console.log(vec1, vec2, vec3);
             function complex(input) {
                 var x1 = input[0];
@@ -192,15 +281,29 @@
             }
 
             var container = document.getElementById("resultContainer");
-            var config1 = new ExperimentConfiguration(2, vec1, xor, true, 0, 1000, 5, container, "3d");
-            var config2 = new ExperimentConfiguration(1, vec2, linear, false, 0.001, 1000, 5, container, "2d");
-            var config3 = new ExperimentConfiguration(1, vec2, cubic, false, 0.01, 1000, 10, container, "2d");
+            
+            var config1 = function () {
+                return new ExperimentConfiguration(2, xorInputs, xor2, false, 0, 500, 12, container, "3d").Population(70)
+            };
+            var config2 = function () {
+                return  new ExperimentConfiguration(1, linearInputs, window["linear2"], false, 0.0, 350, 20, container, "2d").Population(70);
+            };
+            var config3 = function () {
+                return  new ExperimentConfiguration(1, cubicInputs, cubic2, false, 0.0, 350, 20, container, "2d").Population(70);
+            };
 
-
-            var config4 = new ExperimentConfiguration(1, vec4, sine, false, 0.01, 1000, 20, container, "2d");
-            var config5 = new ExperimentConfiguration(1, vec4, tanh, false, 0.0001, 50, 20, container, "2d");
-            var config6 = (new ExperimentConfiguration(2, vec3, complex, false, 0.1, 1000, 25, container, "3d")).Population(25);
-            var config7 = (new ExperimentConfiguration(2, vec3, exp2, false, 0.1, 1000, 25, container, "3d")).Population(25);
+            var config4 = function () {
+                return  new ExperimentConfiguration(1, sineInputs, sine2, false, 0.0, 350, 20, container, "2d").Population(70);
+            };
+            var config5 = function () {
+                return  new ExperimentConfiguration(1, tanhInputs, tanh2, false, 0.0, 350, 20, container, "2d").Population(70);
+            };
+            var config6 = function () {
+                return  (new ExperimentConfiguration(2, complexInputs, complex2, false, 0.0, 500, 25, container, "3d")).Population(70);
+            };
+            var config7 = function () {
+                return   (new ExperimentConfiguration(2, vec3, exp2, false, 0.000001, 350, 25, container, "3d")).Population(70);
+            };
 
 
         </script>

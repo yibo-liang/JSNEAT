@@ -1,3 +1,5 @@
+/* global d3 */
+
 var vecToStr = function (vec) {
     var result = "";
     for (var i = 0; i < vec.length; i++) {
@@ -132,7 +134,7 @@ function renderFunction2D(data, container, color, isIdeaGraph) {
                     }));
     var yRange = d3.scale.linear()
             .range([HEIGHT - MARGINS.top, MARGINS.bottom])
-            .domain([0, 1]);
+            .domain([-1, 1]);
     if (!isIdeaGraph) {
         var xAxis = d3.svg.axis()
                 .scale(xRange)
@@ -182,7 +184,8 @@ var ExperimentConfiguration =
                 maxGeneration,
                 maxHN,
                 container,
-                graphType
+                graphType,
+                repeat
                 ) {
             this.inputNum = inputNum;
             this.inputvecs = inputVector;
@@ -195,6 +198,11 @@ var ExperimentConfiguration =
             this.container = container;
             this.graphType = graphType;
             this.population = 70;
+            this.repeat = typeof repeat === "undefined" ? 50 : repeat;
+            this.count = 0;
+            this.bestGenomes = [];
+            this.bestAnswerVecs = [];
+            this.minErrors = [];
             //console.log(this);
         };
 ExperimentConfiguration.prototype.inputNumber = function (n) {
@@ -238,14 +246,21 @@ ExperimentConfiguration.prototype.Population = function (n) {
     return this;
 };
 
-
+//var bg;
 var kfff = 0;
-function experimentLoop(currentGen, config, pool, correctAnswers, finishCallback, currentMinError) {
+function experimentLoop(currentGen, config, pool, correctAnswers, finishCallback, currentMinError, currentbestAnswers, currentBestGenome) {
     kfff++;
-    var bestGenome = null;
+
+    var bestGenome = currentBestGenome ? currentBestGenome : null;
 
     var done = false;
-    var bestAnswers = [];
+    var bestAnswers;
+    if (!currentbestAnswers) {
+        bestAnswers = [];
+    } else {
+        bestAnswers = currentbestAnswers;
+    }
+
 
     var resultGenome;
     var minError;
@@ -254,10 +269,19 @@ function experimentLoop(currentGen, config, pool, correctAnswers, finishCallback
     } else {
         minError = currentMinError;
     }
-    config.container.innerHTML = "Generation " + currentGen + "/" + config.maxGeneration;
+    var container = d3.select(config.container);
+    var info;
+    if (container.selectAll(".info")[0].length === 0) {
+        info = container.append("div").classed("info", true);
+    } else {
+        info = container.select(".info");
+    }
+    info.selectAll("*").remove();
+    info.append("p").text("Generation " + currentGen + "/" + config.maxGeneration);
+    info.append("p").text("best fitness = " + pool.maxFitness);
+    info.append("p").text("Species count = " + pool.species.length);
 
-    config.container.innerHTML += "<p>best fitness = " + pool.maxFitness + "</p>";
-    config.container.innerHTML += "<p>Species count = " + pool.species.length + "</p>";
+
 
     for (var d = 0; d < pool.species.length; d++) {
         var species = pool.species[d];
@@ -270,6 +294,7 @@ function experimentLoop(currentGen, config, pool, correctAnswers, finishCallback
 
             var currentAnswers = [];
             //var mismatch = 0;
+            var n = 0;
             for (var k = 0; k < config.inputvecs.length; k++) {
                 //console.log("input=", config.inputvecs[k]);
 
@@ -278,32 +303,39 @@ function experimentLoop(currentGen, config, pool, correctAnswers, finishCallback
                 var output = evaluateNeuroNetwork(genome, network, config.inputvecs[k], false);
 
                 var answer = output[0];
-                var correctAnswer = correctAnswers[k];
+                correctAnswer = correctAnswers[k];
+                if (config.isBooleanFunction) {
+                    var answer = answer > 0 ? true : false;
+                }
+                currentAnswers.push(answer);
 
                 if (config.isBooleanFunction) {
-                    var answer = answer > 0.5 ? true : false;
+
                     if (answer !== correctAnswer) {
-                        var ca = correctAnswer ? 1 : 0;
+                        var ca = correctAnswer ? 1 : -1;
                         error += Math.pow(ca - output[0], 2);
+
+                        //console.log(ca,output[0],error);
                     }
                 } else {
                     var deltaI = correctAnswer - answer;
-                    if (deltaI * 10 > config.errorExpectation) {
-                        //mismatch++;
-                    }
+
                     //console.log(correctAnswer, answer, deltaI);
                     error += Math.pow(deltaI, 2);
                 }
-                currentAnswers.push(answer);
                 //console.log("output=", answer, "correct=", correctAnswer);
-
+                n++;
             }
-            error = Math.sqrt(error);
+            error = error / n;
             var reverseSigmoid = function (x) {
-                return 2 * (1 - 1 / (Math.exp(-x * 2) + 1));
+                return 2 * (1 - 1 / (Math.exp(-x * 10) + 1));
             };
-
-            genome.fitness = reverseSigmoid(error);
+            var antiRatio = function (x) {
+                if (x === 0)
+                    return Number.MAX_VALUE;
+                return 1 / x;
+            }
+            genome.fitness = antiRatio(error);
             //genome.fitness = 1 / (error + 0.01);
             if (genome.fitness > pool.maxFitness) {
                 pool.maxFitness = genome.fitness;
@@ -313,9 +345,18 @@ function experimentLoop(currentGen, config, pool, correctAnswers, finishCallback
 
             }
             if (error < minError) {
+                console.log(error)
                 minError = error;
-                bestGenome = genome;
+                bestGenome = genome.copy();
                 bestAnswers = currentAnswers;
+
+                //  console.log("------------***************************");
+                //  console.log("found better minerror=", minError, "bestG", bestGenome, "BestAns=", bestAnswers)
+                // var network = bestGenome.properties["NeuroNetwork"];
+                // for (var k = 0; k < config.inputvecs.length; k++) {
+                //      var output = evaluateNeuroNetwork(bestGenome, network, config.inputvecs[k], true);
+                //  }
+                //  console.log("------------***************************");
                 var data = joinVectors(config.inputvecs, bestAnswers);
 
                 if (config.graphType === "2d") {
@@ -325,6 +366,9 @@ function experimentLoop(currentGen, config, pool, correctAnswers, finishCallback
                     var container = "current3d";
                     render3d(data, container);
                 }
+
+                renderMLPNEATNetwork(bestGenome, bestGenome.properties["NeuroNetwork"], window.maxLayer + 1, "net");
+
             }
             if (error <= config.errorExpectation) {
                 done = true;
@@ -340,11 +384,13 @@ function experimentLoop(currentGen, config, pool, correctAnswers, finishCallback
 
     if (!done && currentGen < config.maxGeneration) {
         setTimeout(function () {
-            console.log("minError=", minError, "k=" + kfff);
+            //console.log("minError=", minError, "k=" + kfff, "bg",bestGenome);
             nextGeneration(pool);
-            experimentLoop(currentGen + 1, config, pool, correctAnswers, finishCallback, minError);
+
+            experimentLoop(currentGen + 1, config, pool, correctAnswers, finishCallback, minError, bestAnswers, bestGenome);
         }, 0);
     } else {
+        bg = bestGenome;
         finishCallback(currentGen, config, correctAnswers, bestAnswers, bestGenome, minError);
         return;
     }
@@ -353,40 +399,78 @@ function experimentLoop(currentGen, config, pool, correctAnswers, finishCallback
 
 function finishExperiment(generation, config, correctAnswers, bestAnswers, bestGenome, minError) {
 
-
+    /// console.log(bg, bg===bestGenome);
     console.log(bestGenome);
+    //console.log("ba", bestAnswers);
     //console.log("gen = " + npool.generation, npool);
+    //for (var k = 0; k < config.inputvecs.length; k++) {
+    //console.log("input=", config.inputvecs[k]);
+    //    var net = bestGenome.properties["NeuroNetwork"];
+    // evaluateNeuroNetwork(bestGenome, net, config.inputvecs[k], true);
+    //}
 
-
-
-    config.container.innerHTML += "<p> Result: " + bestGenome + "</p>";
     //config.container.innerHTML += "<p> output Vec  : " + vecToStr(bestAnswers) + "</p>";
     //config.container.innerHTML += "<p> Expected Vec: " + vecToStr(correctAnswers) + "</p>";
-    config.container.innerHTML += "<p> Error = " + minError + "</p>";
+    //config.container.innerHTML += "<p> Error = " + minError + "</p>";
     //config.container.innerHTML += "<p> Generation = " + generation + "</p>";
+    /*
+     var table = "";
+     table += "<table class='resultTable'>";
+     table += "<tr><td>Input</td><td>Idea Output</td><td>Actual Output</td><td>delta</td></tr>";
+     for (var i = 0; i < bestAnswers.length; i++) {
+     var delta = Math.abs(correctAnswers[i] - bestAnswers[i]);
+     if (config.isBooleanFunction) {
+     delta = correctAnswers[i] === bestAnswers[i] ? "Same" : "Different";
+     }
+     
+     table +=
+     "<tr><td>" + config.inputvecs[i] +
+     "</td><td>" + correctAnswers[i] +
+     "</td><td>" + bestAnswers[i] +
+     "</td><td>" + delta +
+     "</td></tr>";
+     }
+     config.container.innerHTML += table + "</table>";
+     
+     */
+    config.bestGenomes.push(bestGenome);
+    config.minErrors.push(minError);
+    config.bestAnswerVecs.push(bestAnswers);
 
-    var table = "";
-    table += "<table class='resultTable'>";
+    if (config.repeat === 0) {
+        showInputs();
+    } else {
+        var table;
+        if (d3.selectAll(".resultTable")[0].length === 0) {
 
-    table += "<tr><td>Input</td><td>Idea Output</td><td>Actual Output</td><td>delta</td></tr>";
-    for (var i = 0; i < bestAnswers.length; i++) {
-        var delta = Math.abs(correctAnswers[i] - bestAnswers[i]);
-        if (config.isBooleanFunction) {
-            delta = correctAnswers[i] === bestAnswers[i] ? "Same" : "Different";
+            table = d3.select(config.container).append("table").classed("resultTable", true);
+
+
+        } else {
+            table = d3.select(".resultTable");
         }
+        var tr = table.append("tr");
+        tr.append("td").text(config.count++);
+        tr.append("td").text(minError);
+        tr.append("td").append("a").attr("href", "#").text("Show NeuroNet & Graph").on("click", function () {
+            var data = joinVectors(config.inputvecs, bestAnswers);
+            var bg = bestGenome;
+            if (config.graphType === "2d") {
+                var container = "graph";
+                renderFunction2D(data, container, "green", false);
+            } else {
+                var container = "current3d";
+                render3d(data, container);
+            }
+            renderMLPNEATNetwork(bg, bg.properties["NeuroNetwork"], window.maxLayer + 1, "net");
+            console.log(bg);
+        });
 
-        table +=
-                "<tr><td>" + config.inputvecs[i] +
-                "</td><td>" + correctAnswers[i] +
-                "</td><td>" + bestAnswers[i] +
-                "</td><td>" + delta +
-                "</td></tr>";
+        config.repeat--;
+        setTimeout(function () {
+            runExperiment(config);
+        }, 0);
     }
-    config.container.innerHTML += table + "</table>";
-    showInputs();
-
-
-
 }
 
 function runExperiment(config) {
@@ -394,9 +478,9 @@ function runExperiment(config) {
 
     var obj = initNEATPool(config.inputNum, 1, config.population, config.maxHiddenNeurons);
 
-    config.container.innerHTML = "";
-    config.container.innerHTML += "<p> Experiment with function " + config.expFunction.name + "</p>";
-    config.container.innerHTML += "<p> and with input " + vecToStr(config.inputvecs) + "</p>";
+    //config.container.innerHTML = "";
+    //config.container.innerHTML += "<p> Experiment with function " + config.expFunction.name + "</p>";
+    //config.container.innerHTML += "<p> and with input " + vecToStr(config.inputvecs) + "</p>";
 
 
     var correctAnswers = [];
@@ -409,7 +493,7 @@ function runExperiment(config) {
             r = (config.expFunction(i));
         } else {
             if (i.length === 1) {
-                r = (config.expFunction(i[0]));
+                r = (config.expFunction(i));
             } else
                 r = (config.expFunction(i));
         }
@@ -426,7 +510,7 @@ function runExperiment(config) {
     if (!config.isBooleanFunction) {
 
         for (var k = 0; k < config.inputvecs.length; k++) {
-            correctAnswers[k] = (correctAnswers[k] - minVec) / (maxVec - minVec);
+            //correctAnswers[k] = (correctAnswers[k] - minVec) / (maxVec - minVec);
         }
 
     }
@@ -440,6 +524,19 @@ function runExperiment(config) {
         render3d(data, container);
     }
     experimentLoop(0, config, obj.pool, correctAnswers, finishExperiment);
+
+    var table;
+    if (d3.selectAll(".resultTable")[0].length === 0) {
+
+        table = d3.select(config.container).append("table").classed("resultTable", true);
+        var tr = table.append("tr");
+        tr.append("td").text("Experiment Number");
+        tr.append("td").text("Minimum Error");
+        tr.append("td").text("Genome");
+
+    } else {
+        //table.d3.select(".resultTable");
+    }
 
 
 }

@@ -1,12 +1,12 @@
 //this is a framework for genetic algorithm to support not only NEAT, but also any other kind of genome structure
 
-var ageSignificance = 1.5;
+var ageSignificance = 1.2;
 
 var speciationThreshold = 1;
 
-var maxStaleness = 30;
+var maxStaleness = 15;
 
-var minSpecies = 5;
+var minSpecies = 18;
 //helper function, 
 function RandomIntInclusive(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -51,6 +51,10 @@ var Pool = function (population, isSpeciating, selectionOperator) {
     //wether use speciation concept described in NEAT paper
     this.isSpeciating = typeof isSpeciating === "undefined" ? false : isSpeciating;
 
+
+    this.crossoverEnabled = true;
+    this.mutateEnabled = true;
+
     this.staleness = 0;
     this.complexity = 0;
     this.minComplexity = 0;
@@ -83,6 +87,12 @@ var Genome = function (pool) {
     this.adJustedFitness = 0;
     this.log = "LOG: \n";
 };
+
+var copyFunc = function (old) {
+    return JSON.parse(JSON.stringify(old));
+
+};
+
 Genome.prototype.copy = function () {
     var copy = new Genome();
     copy.pool = this.pool;
@@ -93,7 +103,7 @@ Genome.prototype.copy = function () {
     for (var i in this.properties) {
         if (this.properties.hasOwnProperty(i)) {
             if (typeof this.properties[i].copy === "undefined") {
-                copy.properties[i] = this.properties[i];
+                copy.properties[i] = copyFunc(this.properties[i]);
             } else {
                 copy.properties[i] = this.properties[i].copy();
 
@@ -185,7 +195,7 @@ function isSameSpecies(pool, genome1, genome2, threshold) {
 function calculateAverageFitness(species) {
     var total = 0;
     var a = 1;
-    if (species.age <= 10) {
+    if (species.age <= 20) {
         a = ageSignificance;
     } else {
         a = 1;
@@ -307,7 +317,9 @@ function addToSpecies(child, pool) {
 
 
 function crossoverChromesomes(g1, g2, genome) {
+    //console.log("crossover")
     var newChromesomes = {};
+
     for (var chromosome in g1.chromosomes) {
         if (g1.chromosomes.hasOwnProperty(chromosome) &&
                 g2.chromosomes.hasOwnProperty(chromosome)) {
@@ -357,8 +369,7 @@ function breedChild(pool, species, potentialAdoptSpecies) {
     var g;
 
     var select = pool.selectionOperator;
-
-    if (Math.random() < pool.CrossoverChance) {
+    if (Math.random() < pool.CrossoverChance && pool.crossoverEnabled) {
         if (Math.random() < pool.AdoptionChanche) {
             g1 = select(species.genomes);
             g2 = select(potentialAdoptSpecies.genomes);
@@ -383,20 +394,22 @@ function breedChild(pool, species, potentialAdoptSpecies) {
         if (Math.random() < pool.AdoptionChanche) {
             g = select(potentialAdoptSpecies.genomes);
 
-            child = g;
+            child = g.copy();
         } else {
             //console.log(select, pool);
             g = select(species.genomes);
-            child = g;
+            child = g.copy();
         }
     }
     //console.log(child);
-    child.chromosomes = mutateChromesomes(child);
     for (var i in child.chromosomes) {
         if (child.chromosomes.hasOwnProperty(i)) {
             child.chromosomes[i].genome = child;
         }
     }
+    if (pool.mutateEnabled)
+        child.chromosomes = mutateChromesomes(child);
+
     //console.log("newchild .c =", child.chromosomes);
     return child;
 }
