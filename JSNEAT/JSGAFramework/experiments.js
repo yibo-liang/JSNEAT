@@ -174,6 +174,7 @@ function renderFunction2D(data, container, color, isIdeaGraph) {
             .attr('fill', 'none');
 }
 
+var expRepeat=50;
 var ExperimentConfiguration =
         function (
                 inputNum,
@@ -198,7 +199,7 @@ var ExperimentConfiguration =
             this.container = container;
             this.graphType = graphType;
             this.population = 70;
-            this.repeat = typeof repeat === "undefined" ? 50 : repeat;
+            this.repeat = typeof repeat === "undefined" ? expRepeat : repeat;
             this.count = 0;
             this.bestGenomes = [];
             this.bestAnswerVecs = [];

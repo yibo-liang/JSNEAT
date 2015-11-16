@@ -55,8 +55,13 @@
                 document.getElementById("graph3d").style.display = 'block';
 
             }
+
+            var defaultPopulation = 70;
+            var defaultGen=500;
         </script>
         <div id="buttons">
+            Click function name to start.
+            <br/>
             <input type="button" onclick="hideInputs();
                     show3d();
                     runExperiment(config1());" value="xor" />
@@ -84,7 +89,12 @@
             <input type="button" onclick="hideInputs();
                     show3d();
                     runExperiment(config7());" value="exp3d" />
-
+            <br/>
+            <span>Population: <input type="text" id="population" value="70" onchange="defaultPopulation = +document.getElementById('population').value">  </span> <br/>
+            <span>Max Hidden Layer: <input type="text" id="layermax" value="3" onchange="maxLayer = +document.getElementById('layermax').value">  </span> <br/>
+            <span>Max Neuron per layer: <input type="text" id="nplayermax" value="6" onchange="maxNeuronPerLayer = +document.getElementById('nplayermax').value"> </span> <br/>
+            <span>Repeat experiment: <input type="text" id="repeat" value="50" onchange="expRepeat = +document.getElementById('repeat').value">  </span> <br/>
+            <span>Generation <input type="text" id="generation" value="500" onchange="defaultGen = +document.getElementById('generation').value">  </span> <br/>
 
         </div>
         <div id="graph3d"  style="position: relative; left: 0px; height: 500px">
@@ -281,28 +291,28 @@
             }
 
             var container = document.getElementById("resultContainer");
-            
+
             var config1 = function () {
-                return new ExperimentConfiguration(2, xorInputs, xor2, false, 0, 500, 12, container, "3d").Population(70)
+                return new ExperimentConfiguration(2, xorInputs, xor2, false, 0, defaultGen, 12, container, "3d").Population(defaultPopulation)
             };
             var config2 = function () {
-                return  new ExperimentConfiguration(1, linearInputs, window["linear2"], false, 0.0, 350, 20, container, "2d").Population(70);
+                return  new ExperimentConfiguration(1, linearInputs, window["linear2"], false, 0.0, defaultGen, 20, container, "2d").Population(defaultPopulation);
             };
             var config3 = function () {
-                return  new ExperimentConfiguration(1, cubicInputs, cubic2, false, 0.0, 350, 20, container, "2d").Population(70);
+                return  new ExperimentConfiguration(1, cubicInputs, cubic2, false, 0.0, defaultGen, 20, container, "2d").Population(defaultPopulation);
             };
 
             var config4 = function () {
-                return  new ExperimentConfiguration(1, sineInputs, sine2, false, 0.0, 350, 20, container, "2d").Population(70);
+                return  new ExperimentConfiguration(1, sineInputs, sine2, false, 0.0, defaultGen, 20, container, "2d").Population(defaultPopulation);
             };
             var config5 = function () {
-                return  new ExperimentConfiguration(1, tanhInputs, tanh2, false, 0.0, 350, 20, container, "2d").Population(70);
+                return  new ExperimentConfiguration(1, tanhInputs, tanh2, false, 0.0, defaultGen, 20, container, "2d").Population(defaultPopulation);
             };
             var config6 = function () {
-                return  (new ExperimentConfiguration(2, complexInputs, complex2, false, 0.0, 500, 25, container, "3d")).Population(70);
+                return  (new ExperimentConfiguration(2, complexInputs, complex2, false, 0.0, defaultGen, 25, container, "3d")).Population(defaultPopulation);
             };
             var config7 = function () {
-                return   (new ExperimentConfiguration(2, vec3, exp2, false, 0.000001, 350, 25, container, "3d")).Population(70);
+                return   (new ExperimentConfiguration(2, vec3, exp2, false, 0.000001, defaultGen, 25, container, "3d")).Population(defaultPopulation);
             };
 
 

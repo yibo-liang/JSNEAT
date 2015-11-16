@@ -1219,7 +1219,7 @@ var NEATdeltaWeight = 1;
 
 function NEATdeltaFunction(chromosome1, chromosome2) {
     var DeltaDisjoint = 0;
-    var DeltaWeights = 0.5;
+    var DeltaWeights = 0.0;
     var DeltaNeuron = 1;
 
     var dd = DeltaDisjoint * disjoint(chromosome1.genes, chromosome2.genes);
